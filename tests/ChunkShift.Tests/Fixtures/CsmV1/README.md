@@ -1,13 +1,13 @@
-# CSM v1 candidate golden vectors
+# CSM v1 golden vectors
 
-These fixtures are compatibility evidence for the pre-freeze CSM v1 candidate.
+These fixtures are compatibility evidence for the CSM v1 format.
 
 The checked-in binary files are generated independently from the production
 `CsmWriter` / `CsmReader`. The generator is
-`tools/csm-fixtures/generate.py` and uses only Python's standard library plus
-the byte layout in `docs/architecture/CSM-V1-CANDIDATE.md`.
+`tools/conformance/csm/generate.py` and uses only Python's standard library plus
+the byte layout in `docs/architecture/CSM-V1.md`.
 
-Checked in during #5:
+Golden fixtures:
 
 - `empty-sha256-no-bidx.csm`
 - `one-entry-sha256-no-bidx.csm`
@@ -59,7 +59,7 @@ digests kept consistent, so it breaks only the rule in its name.
 `expect.failures`, and the spec rule for rejections). Those expectations come
 from the generator's definitions, not from any decoder.
 
-`tools/csm-fixtures/decode.py` is a second, independent implementation of the
+`tools/conformance/csm/decode.py` is a second, independent implementation of the
 reading side of the specification. It uses only the Python standard library
 and does not import the generator or any ChunkShift code. Two checks use the
 same `vectors.json`:
@@ -74,16 +74,16 @@ same `vectors.json`:
 Verify the checked-in directory:
 
 ```text
-python tools/csm-fixtures/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
+python tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
 ```
 
 Regenerate into a temporary directory with:
 
 ```text
-python tools/csm-fixtures/generate.py --out <directory>
+python tools/conformance/csm/generate.py --out <directory>
 ```
 
-Do not silently replace checked-in vectors. Any candidate-format byte change
+Do not silently replace checked-in vectors. Any format byte change
 must update the specification, expected identities, fixtures, and review
 evidence together. Adding a vector means adding its definition to
 `generate.py`; the C# test and `--verify` both fail for a `.csm` file that

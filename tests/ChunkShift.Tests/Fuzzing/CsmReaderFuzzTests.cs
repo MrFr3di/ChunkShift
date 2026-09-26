@@ -28,7 +28,7 @@ namespace ChunkShift.Tests.Fuzzing;
 /// The default run is small enough for every CI build. Heavy validation runs
 /// more iterations through the environment variables below and also dumps
 /// small cases for a differential check against the independent Python decoder
-/// (<c>tools/csm-fixtures/decode.py --compare</c>).
+/// (<c>tools/conformance/csm/decode.py --compare</c>).
 /// </para>
 /// <list type="bullet">
 /// <item><c>CHUNKSHIFT_FUZZ_ITERATIONS</c>: iterations per seed (default 400);</item>

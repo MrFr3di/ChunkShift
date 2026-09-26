@@ -7,7 +7,7 @@ using ChunkShift.Primitives;
 namespace ChunkShift.Tests.Manifest;
 
 /// <summary>
-/// Runs every vector from <c>tools/csm-fixtures/generate.py</c> through the
+/// Runs every vector from <c>tools/conformance/csm/generate.py</c> through the
 /// public verification API and checks the verdict recorded in
 /// <c>Fixtures/CsmV1/vectors.json</c>.
 /// </summary>

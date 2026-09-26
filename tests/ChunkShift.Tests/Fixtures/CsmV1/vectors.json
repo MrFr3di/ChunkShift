@@ -1,6 +1,6 @@
 {
   "format": "CSM v1 candidate",
-  "generator": "tools/csm-fixtures/generate.py",
+  "generator": "tools/conformance/csm/generate.py",
   "hashSuite": "chunkshift.sha256.v1",
   "profileFingerprint": "50e11b907ba2af4c27c4cf196dbc873fa37f50e7c62e829336b7a76649447627",
   "profileId": "fixture.csm.synthetic.v1",

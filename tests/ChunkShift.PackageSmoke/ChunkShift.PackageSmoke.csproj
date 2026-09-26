@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Consumer of the *packed* ChunkShift NuGet package, shared by CI (JIT),
+    conformance (NativeAOT, x64 + ARM64) and the release workflow.
+    It is intentionally not part of ChunkShift.slnx: it restores ChunkShift
+    from a freshly packed local feed passed as RestoreAdditionalProjectSources,
+    with the packed version passed as ChunkShiftPackageVersion. CONTRIBUTING.md
+    shows the exact local commands.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The package version is supplied per run, not pinned centrally. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ChunkShiftPackageVersion Condition="'$(ChunkShiftPackageVersion)' == ''">0.0.0-local</ChunkShiftPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ChunkShift" Version="$(ChunkShiftPackageVersion)" />
+  </ItemGroup>
+
+</Project>
