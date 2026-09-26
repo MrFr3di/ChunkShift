@@ -1,20 +1,24 @@
 # ChunkShift
 
-**Deterministic content-defined chunking and streaming manifests for .NET.**
+**Deterministic content-defined chunking and verifiable binary manifests for .NET.**
 
-ChunkShift is a small embeddable Core library for splitting binary streams into stable content-defined chunks, creating compact CSM manifests, and verifying content with bounded memory.
+[![.NET 8 | 10](https://img.shields.io/badge/.NET-8%20%7C%2010-512BD4)](#compatibility)
+[![NativeAOT](https://img.shields.io/badge/NativeAOT-compatible-512BD4)](#compatibility)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-It is aimed at software that needs reliable binary identity and reuse information without adopting a storage platform or custom network protocol: launchers, application updaters, build systems, artifact pipelines, desktop software, and services.
+ChunkShift splits any `Stream` into content-defined chunks, gives each chunk a stable 256-bit content identity, and records the result in a compact binary manifest (CSM) that can be read and verified later. Chunk boundaries follow the content rather than fixed offsets, so insertions or deletions do not force every later block to move with them.
+
+Use it to deduplicate stored uploads and build artifacts, measure how much content two versions can reuse, or verify large binary files against a manifest. Processing is streaming and bounded-memory, and Core does not require a server, dependency injection, or ASP.NET Core.
 
 ## Highlights
 
-- **Content-defined chunking.** Unchanged regions can be recognized again after insertions or deletions shift byte offsets.
-- **Deterministic identities.** Stable chunk/profile/manifest semantics are treated as compatibility contracts.
-- **Streaming by default.** Forward-only and non-seekable `Stream` inputs are supported without full-file materialization.
-- **Small Core API.** No DI container, ASP.NET dependency, repository abstraction, or public strategy-interface zoo.
-- **BLAKE3-256 default.** SHA-256 is available as a compatibility HashSuite.
-- **Portable validation.** x64/ARM64 determinism, JIT/NativeAOT consumers, independent vectors, fuzzing, and larger-than-memory paths are part of the evidence.
-- **Ordinary ASP.NET Core integration.** `HttpRequest.Body` + `RequestAborted`; no ChunkShift-specific middleware required.
+- **Stable content-defined boundaries.** FastCDC allows unchanged regions to be recognized again after insertions or deletions shift byte offsets.
+- **Content-addressed chunks.** Chunk identities use BLAKE3-256 by default, with SHA-256 available as a compatibility HashSuite.
+- **Deterministic.** The same bytes produce the same chunk boundaries and identities across supported architectures and execution modes.
+- **Streaming and bounded-memory.** Forward-only and non-seekable `Stream` inputs are supported without full-file materialization.
+- **Compact, verifiable manifests.** CSM records chunk identity and length while keeping logical manifest identity separate from the exact physical file representation.
+- **Small Core surface.** No DI container, ASP.NET dependency, repository abstraction, or public strategy-interface zoo.
+- **NativeAOT-friendly.** Core is designed for trimming and NativeAOT-compatible consumption.
 
 ## Install
 
@@ -26,134 +30,162 @@ dotnet add package ChunkShift --version 0.1.0
 
 ## Quick start
 
-### Stream chunks
+### Chunk a stream
+
+The handler runs once per chunk, in order. The scanner waits for each callback to complete before continuing, which naturally provides backpressure.
+
+`content` is borrowed memory: consume or copy it before the returned `ValueTask` completes.
 
 ```csharp
 using ChunkShift;
 
-await using FileStream source = File.OpenRead("payload.bin");
+await using FileStream source = File.OpenRead("build.bin");
 
 await ChunkScanner.ScanAsync(
     source,
     (chunk, content, cancellationToken) =>
     {
         Console.WriteLine(
-            $"{chunk.Offset,12}  {chunk.Length,8}  {chunk.Id}");
+            $"{chunk.Offset} {chunk.Length} {chunk.Id}");
 
-        // `content` is borrowed. Consume/copy it before this ValueTask ends.
         return ValueTask.CompletedTask;
     });
 ```
 
-The callback is invoked once per chunk, in order. ChunkShift does not dispose the source stream.
+ChunkShift does not dispose the source stream.
 
-### Create a CSM manifest
+### Create and verify a manifest
 
 ```csharp
-await using FileStream content = File.OpenRead("payload.bin");
-await using FileStream output = new(
-    "payload.csm.tmp",
+using ChunkShift;
+
+await using (FileStream content = File.OpenRead("build.bin"))
+await using (FileStream manifest = new(
+    "build.csm.tmp",
     FileMode.CreateNew,
     FileAccess.Write,
-    FileShare.None);
-
-ManifestInfo info =
-    await ChunkManifest.CreateAsync(content, output);
-
-Console.WriteLine($"{info.ManifestId} — {info.ChunkCount} chunks");
-```
-
-Treat manifest publication as an application transaction: write to a temporary destination and move it into place only after `CreateAsync` succeeds.
-
-### Verify later
-
-```csharp
-await using FileStream content = File.OpenRead("payload.bin");
-await using FileStream manifest = File.OpenRead("payload.csm");
-
-ManifestVerificationResult verification =
-    await ChunkManifest.VerifyAsync(content, manifest);
-
-if (!verification.IsValid)
+    FileShare.None))
 {
-    Console.Error.WriteLine(verification.Failures);
+    ManifestInfo info =
+        await ChunkManifest.CreateAsync(content, manifest);
+
+    Console.WriteLine(
+        $"{info.ManifestId}: {info.ChunkCount} chunks");
+}
+
+// Publish only after CreateAsync succeeds.
+File.Move("build.csm.tmp", "build.csm");
+
+await using (FileStream content = File.OpenRead("build.bin"))
+await using (FileStream manifest = File.OpenRead("build.csm"))
+{
+    ManifestVerificationResult result =
+        await ChunkManifest.VerifyAsync(content, manifest);
+
+    Console.WriteLine(
+        result.IsValid
+            ? "valid"
+            : $"invalid: {result.Failures}");
 }
 ```
 
-## Stable Core identity
+Content mismatches are reported through `ManifestVerificationResult`. Malformed or unsupported manifest input is handled according to the documented API contract.
 
-Core `0.1.0` registers one stable FastCDC profile:
-
-| Field | Value |
-| --- | --- |
-| `AlgorithmId` | `fastcdc.gear.chunkshift.v1` |
-| `ProfileId` | `fastcdc.gear.chunkshift.v1.64k` |
-| Minimum | 16 KiB |
-| Nominal target | 64 KiB |
-| Maximum | 256 KiB |
-| `ProfileFingerprint` | `054e6ced561558147f9c35dc66c64142fd4562d21132f0dc51e00544c04200a0` |
-
-The nominal 64 KiB value is a profile parameter, not a promise that every chunk is 64 KiB.
-
-Existing profile/hash/format identifiers are never silently reinterpreted by an optimization or package update.
-
-## CSM: logical vs physical identity
-
-ChunkShift keeps two concepts intentionally separate:
-
-```text
-ManifestId
-    logical manifest identity
-
-FileDigest
-    digest of one exact physical CSM representation
-```
-
-A CSM with an optional physical index can have the same `ManifestId` and a different `FileDigest`.
-
-This makes the distinction explicit for caches, HTTP validators, storage, and future update layers.
-
-## Streaming and ownership
-
-Core is designed around ordinary `Stream` ownership:
-
-- the caller owns input/output streams;
-- the scanner does not dispose its source;
-- callbacks are sequential;
-- callback completion provides backpressure;
-- chunk content is borrowed memory;
-- cancellation is cooperative;
-- an already running handler is not forcibly preempted.
-
-The same model works with files, generated/non-seekable streams, and ASP.NET Core request bodies.
+### Read a manifest without loading it all
 
 ```csharp
-await ChunkScanner.ScanAsync(
-    context.Request.Body,
-    handler,
-    cancellationToken: context.RequestAborted);
+using ChunkShift;
+
+await using FileStream file = File.OpenRead("build.csm");
+await using ManifestReader reader =
+    await ManifestReader.OpenAsync(file);
+
+var batch = new ChunkInfo[1024];
+
+int count;
+while ((count = await reader.ReadAsync(batch)) > 0)
+{
+    for (int i = 0; i < count; i++)
+    {
+        Console.WriteLine(
+            $"{batch[i].Offset} {batch[i].Length} {batch[i].Id}");
+    }
+}
+
+Console.WriteLine(reader.VerificationResult?.IsValid);
 ```
 
-Authentication, request limits, decompression, rate limiting, caching, and HTTP transport policy remain application/host concerns.
+Complete console and ASP.NET Core examples live under [`samples/`](samples/README.md).
 
-## Validation philosophy
+## Common tasks
 
-ChunkShift treats behavior that becomes persisted or observable as a contract.
+| Goal | API |
+| --- | --- |
+| Store each unique chunk of an upload or artifact once | `ChunkScanner.ScanAsync`, keyed by `chunk.Id` |
+| Measure reusable content between versions | Read one manifest with `ManifestReader` and scan the other version with `ChunkScanner.ScanAsync` |
+| Check content against a manifest | `ChunkManifest.VerifyAsync(content, manifest)` |
+| Check a manifest without the original content | `ChunkManifest.VerifyManifestAsync(manifest)` |
+| Use SHA-256 instead of BLAKE3 | Set the HashSuite in `ChunkScanOptions` or `ManifestCreationOptions` |
+| Process large ASP.NET Core uploads | Pass `HttpRequest.Body` and `HttpContext.RequestAborted` directly |
 
-The current Core has evidence for:
+## How it works
 
-- deterministic short-read segmentation;
-- independent FastCDC and CSM verification;
-- corruption/resource-bound testing and differential fuzzing;
-- x64/ARM64 output equality;
-- JIT/NativeAOT clean consumers;
-- larger-than-memory streaming;
-- real Kestrel request streaming;
-- request cancellation and handler non-preemption;
-- slow-consumer backpressure;
-- CSM HTTP Range and strong ETag behavior.
+```mermaid
+flowchart LR
+    S["Stream<br/>file, network, request body"] --> C["FastCDC<br/>content-defined boundaries"]
+    C --> H["BLAKE3-256 or SHA-256<br/>ChunkId per chunk"]
+    H --> A["ScanAsync handler<br/>application code"]
+    H --> M["CSM manifest<br/>CreateAsync"]
+    M --> V["VerifyAsync / ManifestReader"]
+```
 
-Decision evidence is kept in the repository rather than reduced to benchmark claims in this README.
+| Term | Meaning |
+| --- | --- |
+| `ChunkId` | Hash of the exact chunk bytes under the selected HashSuite. |
+| HashSuite | Selects the persistent content hash algorithm used for chunk and manifest identities. |
+| Chunking profile | Stable FastCDC boundary semantics. The default profile is `fastcdc.gear.chunkshift.v1.64k`. |
+| `ProfileFingerprint` | 256-bit digest of the exact profile semantics recorded with the profile identity. |
+| `ManifestId` | Logical identity of the manifest: profile, HashSuite, and ordered chunk sequence. |
+| `FileDigest` | Digest of the exact physical CSM bytes. Physical layout changes can change this without changing `ManifestId`. |
+
+The default profile uses:
+
+```text
+minimum: 16 KiB
+target:  64 KiB
+maximum: 256 KiB
+```
+
+Its stable profile fingerprint is:
+
+```text
+054e6ced561558147f9c35dc66c64142fd4562d21132f0dc51e00544c04200a0
+```
+
+## Stability
+
+| Contract | Stability |
+| --- | --- |
+| Core `0.1.x` public package | Pre-1.0. Breaking API changes remain possible and must be explicit in release notes. |
+| Default FastCDC profile and fingerprint | Persisted contract. Existing identifiers are never silently reinterpreted. |
+| HashSuite identifiers and hash domains | Persisted contract. |
+| CSM format and logical identity semantics | Persisted contract. |
+| `ManifestId` vs `FileDigest` distinction | Persisted semantic contract. |
+
+Performance work does not redefine persisted identity. An optimized implementation must reproduce the same contract-defined output unless a reviewed compatibility change introduces a new identity/version.
+
+## Compatibility
+
+| Area | Support |
+| --- | --- |
+| Target frameworks | `net8.0`, `net10.0` |
+| NativeAOT | Supported |
+| Trimming | Supported |
+| Input model | Forward-only and non-seekable `Stream` |
+| ASP.NET Core | Direct `HttpRequest.Body` composition; no Core dependency on ASP.NET |
+| Determinism | Architecture-independent persisted semantics |
+
+See [`docs/SUPPORT.md`](docs/SUPPORT.md) for the detailed support matrix.
 
 ## Repository map
 
@@ -162,21 +194,22 @@ src/ChunkShift/        Core implementation
 tests/                 correctness and compatibility gates
 samples/               minimal consumers
 docs/architecture/     normative contracts
-docs/validation/       integration evidence
-docs/benchmarks/       evidence behind design/profile decisions
-tools/                 independent/reference verification
+docs/validation/       integration validation
+docs/benchmarks/       design and performance records
+tools/                 independent/reference tooling
 AGENTS.md              standing rules for coding agents
+CONTRIBUTING.md        contribution workflow
 ```
 
 ### For coding agents
 
-Read [`AGENTS.md`](AGENTS.md) first.
+Read [`AGENTS.md`](AGENTS.md) before modifying the repository.
 
-Use the README for orientation, then follow the nearest normative architecture/spec document before changing compatibility-sensitive code. In particular, do not casually rewrite stable vectors, persisted IDs, format semantics, or stream-ownership rules.
+Use this README for orientation, then find the nearest relevant specification and tests before changing compatibility-sensitive behavior. Stable vectors, persisted identifiers, format semantics, ownership, and cancellation rules are contracts, not implementation details to rewrite casually.
 
-## Build
+## Building from source
 
-Requirements: .NET 10 SDK and the .NET 8 runtime for the `net8.0` test target.
+Requires the .NET 10 SDK and the .NET 8 runtime for the `net8.0` test target.
 
 ```bash
 dotnet restore ChunkShift.slnx
@@ -186,21 +219,28 @@ dotnet test ChunkShift.slnx -c Release --no-build --no-restore
 
 ## Documentation
 
-- [Core 0.1 API freeze](docs/architecture/CORE-0.1-API-FREEZE.md)
-- [CSM format](docs/architecture/CSM-V1-CANDIDATE.md)
-- [FastCDC semantics](docs/architecture/FASTCDC-V1-CANDIDATE.md)
-- [Profile fingerprint contract](docs/architecture/PROFILE-FINGERPRINT-V1.md)
-- [Profile selection evidence](docs/benchmarks/CDC-0.1-PROFILE-DECISION-2026-09.md)
+- [Core 0.1 API contract](docs/architecture/CORE-0.1-API-FREEZE.md)
+- [CSM format specification](docs/architecture/CSM-V1-CANDIDATE.md)
+- [FastCDC profile semantics](docs/architecture/FASTCDC-V1-CANDIDATE.md)
+- [Profile fingerprint](docs/architecture/PROFILE-FINGERPRINT-V1.md)
 - [ASP.NET Core host validation](docs/validation/ASPNET-CORE-HOST-VALIDATION-2026-09.md)
+- [Samples](samples/README.md)
+- [Support matrix](docs/SUPPORT.md)
+- [Release policy](docs/RELEASES.md)
+- [Changelog](CHANGELOG.md)
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Public API, persisted-format, profile/hash identity, and compatibility changes require explicit review and evidence.
+Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Changes to public API, persisted identities, binary formats, profile/hash semantics, or other compatibility-sensitive behavior require explicit review.
+
+Coding agents should also read [`AGENTS.md`](AGENTS.md).
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) for vulnerability reporting.
+Report suspected vulnerabilities privately according to [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+[MIT](LICENSE)
