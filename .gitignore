@@ -1,0 +1,31 @@
+# Build results
+**/bin/
+**/obj/
+**/artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# Test results
+TestResults/
+
+# IDE
+*.user
+*.suo
+*.cache
+.vs/
+.vscode/
+*.DotSettings.user
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python conformance tooling
+__pycache__/
+*.pyc
+
+# Samples: local chunk store of ChunkShift.Samples.AspNetCore
+samples/**/chunk-store/

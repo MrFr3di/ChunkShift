@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageId>ChunkShift</PackageId>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Description>Deterministic content-defined chunking, streaming binary manifests and verification for .NET.</Description>
+    <Authors>MrFr3di</Authors>
+    <Copyright>Copyright (c) 2026 MrFr3di</Copyright>
+    <PackageProjectUrl>https://github.com/MrFr3di/ChunkShift</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/MrFr3di/ChunkShift</RepositoryUrl>
+    <PackageTags>chunking;content-defined-chunking;cdc;fastcdc;content-addressing;deduplication;blake3;manifest</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ChunkShift.Tests" />
+    <PackageReference Include="Blake3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
+                      PrivateAssets="all"
+                      IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <!-- Rendered by nuget.org, so it uses absolute links: repository-relative paths do not resolve there. -->
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

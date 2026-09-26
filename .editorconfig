@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+
+# Keep using directives deterministic without forcing stylistic churn.
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Prefer modern language constructs, but keep style findings non-blocking.
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_style_prefer_primary_constructors = false:suggestion
+dotnet_style_readonly_field = true:suggestion
+
+# API drift must be explicit in review.
+dotnet_diagnostic.RS0016.severity = error
+dotnet_diagnostic.RS0017.severity = error
+dotnet_diagnostic.RS0026.severity = error
