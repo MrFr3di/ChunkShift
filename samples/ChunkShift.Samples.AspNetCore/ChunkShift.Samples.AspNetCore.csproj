@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Minimal ASP.NET Core consumer of the packed ChunkShift package.
+    Not part of ChunkShift.slnx; samples/README.md shows how to restore it
+    from a locally packed feed. CI builds and runs it against the package it
+    produced.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The package version is supplied per run, not pinned centrally. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ChunkShiftPackageVersion Condition="'$(ChunkShiftPackageVersion)' == ''">0.0.0-local</ChunkShiftPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ChunkShift" Version="$(ChunkShiftPackageVersion)" />
+  </ItemGroup>
+
+</Project>
