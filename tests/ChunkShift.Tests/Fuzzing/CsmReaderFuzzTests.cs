@@ -25,7 +25,7 @@ namespace ChunkShift.Tests.Fuzzing;
 /// sizes and random batch sizes reach the same verdict.</item>
 /// </list>
 /// <para>
-/// The default run is small enough for every CI build. Heavy validation runs
+/// The default run is small enough for every CI build. The conformance workflow runs
 /// more iterations through the environment variables below and also dumps
 /// small cases for a differential check against the independent Python decoder
 /// (<c>tools/conformance/csm/decode.py --compare</c>).

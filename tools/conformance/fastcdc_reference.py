@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent scalar verifier for ChunkShift FastCDC v1 candidate semantics."""
+"""Independent scalar verifier for ChunkShift FastCDC v1 semantics (docs/architecture/FASTCDC-V1.md)."""
 
 from __future__ import annotations
 

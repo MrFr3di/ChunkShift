@@ -126,7 +126,7 @@ Complete console and ASP.NET Core examples live under [`samples/`](samples/READM
 | Check content against a manifest | `ChunkManifest.VerifyAsync(content, manifest)` |
 | Check a manifest without the original content | `ChunkManifest.VerifyManifestAsync(manifest)` |
 | Use SHA-256 instead of BLAKE3 | Set the HashSuite in `ChunkScanOptions` or `ManifestCreationOptions` |
-| Process large ASP.NET Core uploads | Pass `HttpRequest.Body` and `HttpContext.RequestAborted` directly |
+| Process large ASP.NET Core uploads | Pass `HttpRequest.Body` and `HttpContext.RequestAborted` directly ([guide](docs/ASPNET-CORE.md)) |
 
 ## How it works
 
@@ -191,12 +191,11 @@ See [`docs/SUPPORT.md`](docs/SUPPORT.md) for the detailed support matrix.
 
 ```text
 src/ChunkShift/        Core implementation
-tests/                 correctness and compatibility gates
-samples/               minimal consumers
-docs/architecture/     normative contracts
-docs/validation/       integration validation
-docs/benchmarks/       design and performance records
-tools/                 independent/reference tooling
+tests/                 correctness, compatibility and package-consumer gates
+samples/               minimal console and ASP.NET Core consumers
+docs/architecture/     normative contracts (API, CSM, FastCDC, profile fingerprint)
+docs/                  hosting, support and release policy
+tools/conformance/     independent FastCDC and CSM reference tooling
 AGENTS.md              standing rules for coding agents
 CONTRIBUTING.md        contribution workflow
 ```
@@ -219,11 +218,11 @@ dotnet test ChunkShift.slnx -c Release --no-build --no-restore
 
 ## Documentation
 
-- [Core 0.1 API contract](docs/architecture/CORE-0.1-API-FREEZE.md)
-- [CSM format specification](docs/architecture/CSM-V1-CANDIDATE.md)
-- [FastCDC profile semantics](docs/architecture/FASTCDC-V1-CANDIDATE.md)
+- [Core 0.1 API contract](docs/architecture/CORE-0.1-API.md)
+- [CSM v1 format specification](docs/architecture/CSM-V1.md)
+- [FastCDC profile semantics](docs/architecture/FASTCDC-V1.md)
 - [Profile fingerprint](docs/architecture/PROFILE-FINGERPRINT-V1.md)
-- [ASP.NET Core host validation](docs/validation/ASPNET-CORE-HOST-VALIDATION-2026-09.md)
+- [Hosting in ASP.NET Core](docs/ASPNET-CORE.md)
 - [Samples](samples/README.md)
 - [Support matrix](docs/SUPPORT.md)
 - [Release policy](docs/RELEASES.md)

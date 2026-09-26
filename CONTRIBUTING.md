@@ -68,7 +68,7 @@ CI is authoritative for the final merge decision.
 | New behavior or API | issue/design discussion first | tests + compatibility review |
 | CSM/profile/hash/persisted identity | governing issue/spec required | vectors + compatibility validation |
 | Security/parser/resource-bound change | issue or private security report, depending on sensitivity | hostile-input/resource tests |
-| Hot-path/performance change | explain hypothesis first | project benchmark evidence |
+| Hot-path/performance change | explain hypothesis first | repeatable benchmark evidence |
 | NativeAOT/trim-sensitive change | identify the affected path | package-consumer/AOT validation |
 
 If you are unsure which path applies, open an issue with the problem you are trying to solve. You do not need to arrive with a complete design.
@@ -187,7 +187,25 @@ For compatibility-sensitive changes, additional evidence may be required:
 - larger-than-memory/resource-bound validation;
 - real-host validation where transport behavior matters.
 
-Do not claim a performance improvement from a stopwatch-only run. Use the project benchmark harness and report enough raw data for the result to be reviewed.
+Do not claim a performance improvement from a stopwatch-only run. Use a repeatable benchmark (for example BenchmarkDotNet) that compares baseline and candidate on the same machine, show that output is unchanged, and report enough raw data for the result to be reviewed.
+
+### Package-consumer and conformance checks
+
+Changes that affect packaging, the public API, NativeAOT behavior or persisted contracts also need the checks CI runs outside `ChunkShift.slnx`. Use a new local package version for each pack; NuGet caches packages by version.
+
+```bash
+dotnet pack src/ChunkShift/ChunkShift.csproj -c Release -o artifacts/packages -p:PackageVersion=0.0.0-local.1
+dotnet run --project tests/ChunkShift.PackageSmoke -c Release -p:ChunkShiftPackageVersion=0.0.0-local.1 -p:RestoreAdditionalProjectSources=<repo>/artifacts/packages
+```
+
+The independent conformance tools need only Python 3 and its standard library:
+
+```bash
+python3 tools/conformance/fastcdc_reference.py --verify
+python3 tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
+```
+
+The `Conformance` workflow additionally runs the NativeAOT consumer on x64 and ARM64, compares their output and streams a source larger than its memory limit. It runs on PRs that touch Core, tests, tools, build configuration or specifications.
 
 ## Dependencies
 

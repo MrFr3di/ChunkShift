@@ -96,8 +96,8 @@ Run narrower relevant tests while iterating. Before completion, run the checks a
 | CSM parser/writer | independent fixtures/decoder + malformed/corrupt cases |
 | NativeAOT / trimming | package consumer + AOT/trim validation |
 | Security / parser bounds | hostile-input, fuzz, checked-arithmetic, resource-bound tests |
-| Hot path / performance | project benchmark harness with repeated comparable samples |
-| Host integration | real Kestrel/host validation when transport behavior matters |
+| Hot path / performance | repeatable benchmark (for example BenchmarkDotNet) with comparable baseline/candidate samples |
+| Host integration | real Kestrel/host check against `docs/ASPNET-CORE.md` when transport behavior matters |
 | Cross-platform deterministic behavior | x64/ARM64 comparison |
 
 Do not claim a performance improvement from a single stopwatch run. Record the baseline/candidate identity, workload, environment, repeated samples, useful summary statistics, and output-equivalence evidence.
