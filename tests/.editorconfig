@@ -1,0 +1,3 @@
+[*.cs]
+# Descriptive xUnit test names intentionally use Method_State_Expected_Result.
+dotnet_diagnostic.CA1707.severity = none

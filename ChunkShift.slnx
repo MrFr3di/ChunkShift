@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/ChunkShift/ChunkShift.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ChunkShift.Tests/ChunkShift.Tests.csproj" />
+  </Folder>
 </Solution>

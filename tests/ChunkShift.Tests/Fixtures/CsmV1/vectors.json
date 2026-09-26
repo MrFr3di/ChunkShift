@@ -1,0 +1,548 @@
+{
+  "format": "CSM v1 candidate",
+  "generator": "tools/csm-fixtures/generate.py",
+  "hashSuite": "chunkshift.sha256.v1",
+  "profileFingerprint": "50e11b907ba2af4c27c4cf196dbc873fa37f50e7c62e829336b7a76649447627",
+  "profileId": "fixture.csm.synthetic.v1",
+  "vectors": {
+    "empty-sha256-no-bidx.csm": {
+      "cblkCount": 0,
+      "chunkCount": 0,
+      "contentLength": 0,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "7b7fbf21a433c37590b6b9273a6249341a04226174369e685bd6557ecffa32ab",
+      "hasBidx": false,
+      "manifestId": "ab0c32c4052ea59a35569b20b23f8d3d0156d3aca59c431a70ba5f365f66a12c",
+      "physicalLength": 340
+    },
+    "integrity-bad-cblk-crc.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "BlockCrc"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 492
+    },
+    "integrity-bad-file-digest.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "FileDigest"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 492
+    },
+    "integrity-bad-stored-manifest-id.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "ManifestId"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 492
+    },
+    "integrity-cend-chunk-count-mismatch.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "LogicalTotals"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 492
+    },
+    "integrity-cend-content-length-mismatch.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "LogicalTotals"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 492
+    },
+    "integrity-profile-semantics-known-id-wrong-fingerprint.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "ProfileSemantics"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 498
+    },
+    "multiblock-sha256-bidx.csm": {
+      "cblkCount": 2,
+      "chunkCount": 4097,
+      "contentLength": 8390657,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "9a4ca2a47086c5de0e6556fbe61ad33f1b4127e6079eb9121dae340e9c9b3d25",
+      "hasBidx": true,
+      "manifestId": "b93a7868fd0714e2ecde57303f9df466e7695677d3d79e88f443d49b55cd82e6",
+      "physicalLength": 147976
+    },
+    "multiblock-sha256-no-bidx.csm": {
+      "cblkCount": 2,
+      "chunkCount": 4097,
+      "contentLength": 8390657,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "abba97ae65253ee7e6b42dd6ca82da3b170d5822e3bdf8feaf682e80f9b2580c",
+      "hasBidx": false,
+      "manifestId": "b93a7868fd0714e2ecde57303f9df466e7695677d3d79e88f443d49b55cd82e6",
+      "physicalLength": 147920
+    },
+    "one-entry-sha256-no-bidx.csm": {
+      "cblkCount": 1,
+      "chunkCount": 1,
+      "contentLength": 28,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "2339a525f39e5959d8855fb746e2930cd1dffc8ddc742b0d5626aad691de8cd4",
+      "hasBidx": false,
+      "manifestId": "7add187663e900912f9438fcf3a3fc13a826937a188cd377e32aa145ed9b3606",
+      "physicalLength": 420
+    },
+    "reject-bidx-entry-does-not-match-cblk.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "10: entries correspond one-to-one with CBLK"
+      },
+      "physicalLength": 532
+    },
+    "reject-bidx-marked-required.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "4/10: BIDX is optional and cannot be REQUIRED"
+      },
+      "physicalLength": 532
+    },
+    "reject-bidx-unknown-version.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "10: IndexVersion = 1"
+      },
+      "physicalLength": 532
+    },
+    "reject-cblk-first-content-offset-mismatch.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "6: FirstContentOffset"
+      },
+      "physicalLength": 492
+    },
+    "reject-cblk-first-index-mismatch.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "6: FirstChunkIndex"
+      },
+      "physicalLength": 492
+    },
+    "reject-cblk-nonzero-reserved.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "6: reserved must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-cblk-zero-length-chunk.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "6: chunk Length must be > 0"
+      },
+      "physicalLength": 420
+    },
+    "reject-core-extension-bytes.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "5: ExtensionBytes must be zero"
+      },
+      "physicalLength": 496
+    },
+    "reject-core-optional-semantic-feature.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "5: OptionalSemanticFeatures must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-core-payload-length-mismatch.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "5: CORE PayloadLength must equal its fields"
+      },
+      "physicalLength": 493
+    },
+    "reject-core-profile-id-grammar.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "1/5: identifier grammar"
+      },
+      "physicalLength": 481
+    },
+    "reject-core-profile-id-too-long.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "1/5: identifier at most 128 bytes"
+      },
+      "physicalLength": 597
+    },
+    "reject-core-required-semantic-feature.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "5: RequiredSemanticFeatures must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-foot-nonzero-reserved.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "11: reserved must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-foot-wrong-cend-offset.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "11: CendSectionOffset"
+      },
+      "physicalLength": 492
+    },
+    "reject-order-aux0-after-bidx.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: AUX after BIDX"
+      },
+      "physicalLength": 552
+    },
+    "reject-order-aux0-before-cend.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: AUX before CEND"
+      },
+      "physicalLength": 513
+    },
+    "reject-order-aux0-marked-required.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "9: AUX0 is optional"
+      },
+      "physicalLength": 511
+    },
+    "reject-order-cblk-after-cend-optional-flag.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: CBLK after CEND, independent of flags"
+      },
+      "physicalLength": 572
+    },
+    "reject-order-cblk-after-cend-required.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: CBLK after CEND"
+      },
+      "physicalLength": 572
+    },
+    "reject-order-core-after-cend-optional-flag.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: CORE after CEND, independent of flags"
+      },
+      "physicalLength": 608
+    },
+    "reject-order-duplicate-bidx.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: duplicate BIDX"
+      },
+      "physicalLength": 572
+    },
+    "reject-order-duplicate-cend.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: duplicate CEND"
+      },
+      "physicalLength": 556
+    },
+    "reject-order-duplicate-core.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: duplicate CORE"
+      },
+      "physicalLength": 608
+    },
+    "reject-order-missing-cend.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: missing CEND"
+      },
+      "physicalLength": 428
+    },
+    "reject-order-section-after-foot.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: section after FOOT"
+      },
+      "physicalLength": 512
+    },
+    "reject-order-unknown-optional-before-cend.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: unknown optional section outside the AUX phase"
+      },
+      "physicalLength": 513
+    },
+    "reject-order-unknown-required-tail-section.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "4: unknown REQUIRED section"
+      },
+      "physicalLength": 517
+    },
+    "reject-preamble-bad-magic.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "3: magic"
+      },
+      "physicalLength": 492
+    },
+    "reject-preamble-nonzero-reserved.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "3: reserved must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-preamble-unknown-required-physical-feature.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "1/3: unknown required physical feature"
+      },
+      "physicalLength": 492
+    },
+    "reject-preamble-unsupported-format-major.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "3: FormatMajor"
+      },
+      "physicalLength": 492
+    },
+    "reject-section-overflowing-payload-length.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "4/13: PayloadLength exceeds remaining bytes"
+      },
+      "physicalLength": 492
+    },
+    "reject-section-reserved-flag-bit.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "4: reserved flag bits must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-trailer-bytes-after-trailer.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "2.1: bytes after TRAILER"
+      },
+      "physicalLength": 493
+    },
+    "reject-trailer-nonzero-reserved.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "12: reserved must be zero"
+      },
+      "physicalLength": 492
+    },
+    "reject-trailer-wrong-physical-length.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "12: PhysicalLength"
+      },
+      "physicalLength": 492
+    },
+    "reject-truncated-inside-cblk-header.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "13: premature EOF"
+      },
+      "physicalLength": 156
+    },
+    "reject-truncated-inside-preamble.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "13: premature EOF"
+      },
+      "physicalLength": 16
+    },
+    "reject-truncated-inside-trailer.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "13: premature EOF"
+      },
+      "physicalLength": 491
+    },
+    "reject-truncated-missing-trailer.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "reject",
+        "rule": "13: premature EOF"
+      },
+      "physicalLength": 428
+    },
+    "unsupported-chunk-length-above-int32.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "unsupported",
+        "rule": "13: chunk Length above the .NET Int32 API range"
+      },
+      "physicalLength": 420
+    },
+    "unsupported-unknown-hash-suite.csm": {
+      "expect": {
+        "failures": [],
+        "outcome": "unsupported",
+        "rule": "5: unknown HashSuite"
+      },
+      "physicalLength": 492
+    },
+    "valid-aux0-optional-skipped.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "d63801723e0b7a24d660f08ed75411719211c1a31afac2390003f2596c168e79",
+      "hasBidx": true,
+      "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
+      "physicalLength": 559
+    },
+    "valid-optional-physical-feature-ignored.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "82fdd480a476d8569dc564f663ffa47728f8a6da99bdc17c833acc2eee7fbf07",
+      "hasBidx": false,
+      "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
+      "physicalLength": 492
+    },
+    "valid-small-sha256-bidx.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "ddb03027781487c0c0807f5febc70c489fa0ef6d227a11301464dec050c5f2a8",
+      "hasBidx": true,
+      "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
+      "physicalLength": 532
+    },
+    "valid-small-sha256-no-bidx.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "9cf517f4d8a56c29e32b49f4dc6fc3000c159ee26b6a392227ca40d222090110",
+      "hasBidx": false,
+      "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
+      "physicalLength": 492
+    },
+    "valid-unknown-optional-tail-section-skipped.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "48196787e862868676f7567090adff976d25738142db33b0856e8f3b768ad0e4",
+      "hasBidx": false,
+      "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
+      "physicalLength": 517
+    }
+  }
+}
