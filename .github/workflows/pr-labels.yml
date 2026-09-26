@@ -1,0 +1,60 @@
+name: PR labels
+
+# Labels each PR from its Conventional Commits title so GitHub-generated
+# release notes group it (.github/release.yml). pull_request_target is needed
+# to label PRs from forks; it is safe here because the job never checks out or
+# runs PR code and reads the title only through an environment variable.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions: {}
+
+jobs:
+  label:
+    name: label
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+    steps:
+      - name: Apply labels from the title
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='^([a-z]+)(\([a-z0-9._/-]+\))?(!)?:'
+          type=""
+          breaking=false
+          if [[ "${PR_TITLE}" =~ ${pattern} ]]; then
+            type="${BASH_REMATCH[1]}"
+            [[ -n "${BASH_REMATCH[3]}" ]] && breaking=true
+          fi
+
+          case "${type}" in
+            feat) wanted=(enhancement) ;;
+            fix) wanted=(bug) ;;
+            perf) wanted=(performance) ;;
+            docs) wanted=(documentation) ;;
+            *) wanted=() ;;
+          esac
+          if [[ "${breaking}" == true ]]; then wanted+=(breaking); fi
+
+          # Remove managed labels that no longer match an edited title.
+          for label in enhancement bug performance documentation breaking; do
+            if [[ " ${wanted[*]} " != *" ${label} "* ]]; then
+              gh api -X DELETE "repos/${GH_REPO}/issues/${PR_NUMBER}/labels/${label}" > /dev/null 2>&1 || true
+            fi
+          done
+
+          for label in "${wanted[@]}"; do
+            # Create the label on first use; an existing label is left as is.
+            gh api "repos/${GH_REPO}/labels" -f name="${label}" > /dev/null 2>&1 || true
+            gh api "repos/${GH_REPO}/issues/${PR_NUMBER}/labels" -f "labels[]=${label}" > /dev/null
+          done
+          echo "labels: ${wanted[*]:-none}"

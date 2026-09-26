@@ -1,0 +1,238 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  # Every PR, whatever its base, so stacked PRs are validated too.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  NUGET_XMLDOC_MODE: skip
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ChunkShift.slnx
+
+      - name: Build
+        run: dotnet build ChunkShift.slnx -c Release --no-restore
+
+      - name: Test
+        if: matrix.os != 'ubuntu-24.04'
+        run: dotnet test ChunkShift.slnx -c Release --no-build --no-restore
+
+      - name: Test with coverage
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # One run per target framework so each report is attributable;
+          # ChunkShift.Tests is the only test project in ChunkShift.slnx.
+          for tfm in net8.0 net10.0; do
+            dotnet test tests/ChunkShift.Tests/ChunkShift.Tests.csproj -c Release --no-build --no-restore \
+              -f "$tfm" --collect "XPlat Code Coverage" --results-directory "artifacts/coverage/$tfm"
+          done
+
+      - name: Coverage summary
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          reports = sorted(Path("artifacts/coverage").rglob("coverage.cobertura.xml"))
+          if not reports:
+              raise SystemExit("no coverage reports were produced")
+
+          print("### Core coverage\n")
+          print("| Target framework | Lines | Branches |")
+          print("|---|---|---|")
+          for report in reports:
+              root = ET.parse(report).getroot()
+              tfm = report.relative_to("artifacts/coverage").parts[0]
+              lines = f"{float(root.get('line-rate')):.1%} ({root.get('lines-covered')}/{root.get('lines-valid')})"
+              branches = f"{float(root.get('branch-rate')):.1%} ({root.get('branches-covered')}/{root.get('branches-valid')})"
+              print(f"| {tfm} | {lines} | {branches} |")
+          PY
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: artifacts/coverage/**/coverage.cobertura.xml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Verify the FastCDC and CSM vectors with the independent tools
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/conformance/fastcdc_reference.py --verify
+          python3 tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
+
+  package-smoke:
+    name: package-smoke
+    needs: build-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PACKAGE_VERSION: 0.0.0-ci.${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ChunkShift.slnx
+
+      - name: Build package project
+        run: dotnet build src/ChunkShift/ChunkShift.csproj -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
+
+      - name: Consume produced package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/package-smoke
+          dotnet run --project tests/ChunkShift.PackageSmoke/ChunkShift.PackageSmoke.csproj -c Release \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -- --evidence artifacts/package-smoke/jit-linux-x64.txt
+
+      - name: Build and run samples against produced package
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=artifacts/samples
+          mkdir -p "$work"
+
+          for project in Console AspNetCore
+          do
+            dotnet build "samples/ChunkShift.Samples.${project}/ChunkShift.Samples.${project}.csproj" -c Release \
+              -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
+              -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages"
+          done
+
+          console() {
+            dotnet samples/ChunkShift.Samples.Console/bin/Release/net10.0/ChunkShift.Samples.Console.dll "$@"
+          }
+
+          head -c $((6 * 1024 * 1024)) /dev/urandom > "$work/content.bin"
+          head -c $((9 * 1024 * 1024)) /dev/urandom > "$work/oversized.bin"
+
+          # Console: scan, create, verify, then a content mismatch.
+          console scan "$work/content.bin" > "$work/scan.txt"
+          chunks=$(wc -l < "$work/scan.txt")
+          test "$chunks" -gt 0
+
+          console create "$work/content.bin" "$work/content.csm" > "$work/create.txt"
+          grep -q '^manifest-id=' "$work/create.txt"
+          console verify "$work/content.bin" "$work/content.csm" | grep -q '^valid=true '
+
+          cp "$work/content.bin" "$work/wrong.bin"
+          python3 -c 'import sys; p = sys.argv[1]; d = bytearray(open(p, "rb").read()); d[len(d) // 2] ^= 0x80; open(p, "wb").write(d)' "$work/wrong.bin"
+          set +e
+          console verify "$work/wrong.bin" "$work/content.csm" > "$work/mismatch.txt"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -q '^valid=false ' "$work/mismatch.txt"
+
+          # create never replaces an existing manifest.
+          cp "$work/content.csm" "$work/existing.csm"
+          set +e
+          console create "$work/wrong.bin" "$work/existing.csm" 2> /dev/null
+          status=$?
+          set -e
+          test "$status" -eq 2
+          cmp "$work/content.csm" "$work/existing.csm"
+          test -z "$(find "$work" -name '*.tmp')"
+
+          # ASP.NET Core: request-body streaming with an explicit 8 MiB limit.
+          port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+          export ASPNETCORE_URLS="http://127.0.0.1:${port}"
+          export ChunkShift__MaxRequestBodyBytes=$((8 * 1024 * 1024))
+          export ChunkShift__ChunkStore="${GITHUB_WORKSPACE}/$work/store"
+          dotnet samples/ChunkShift.Samples.AspNetCore/bin/Release/net10.0/ChunkShift.Samples.AspNetCore.dll \
+            > "$work/server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2> /dev/null || true; cat "$work/server.log"' EXIT
+
+          ready=false
+          for _ in $(seq 60)
+          do
+            if curl -sf -o /dev/null -X POST --data-binary '' "$ASPNETCORE_URLS/chunks"; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+
+          post() {
+            curl -sS --fail -X POST -H 'Content-Type: application/octet-stream' \
+              --data-binary "@$1" "$ASPNETCORE_URLS/$2" "${@:3}"
+          }
+
+          # The server-side manifest verifies and matches the console one byte for byte.
+          post "$work/content.bin" manifest -o "$work/server.csm"
+          console verify "$work/content.bin" "$work/server.csm" | grep -q '^valid=true '
+          cmp "$work/content.csm" "$work/server.csm"
+
+          # Chunks are stored once; a repeated upload stores nothing new.
+          post "$work/content.bin" chunks > "$work/chunks-1.txt"
+          post "$work/content.bin" chunks > "$work/chunks-2.txt"
+          grep -qx "chunks=${chunks} bytes=$((6 * 1024 * 1024)) stored=${chunks}" "$work/chunks-1.txt"
+          grep -qx "chunks=${chunks} bytes=$((6 * 1024 * 1024)) stored=0" "$work/chunks-2.txt"
+          test "$(find "$work/store" -type f | wc -l)" -eq "$chunks"
+
+          # A body over the configured limit is refused, not silently accepted.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/octet-stream' \
+            --data-binary "@$work/oversized.bin" "$ASPNETCORE_URLS/manifest" || true)
+          test "$code" = 413
+
+      - name: Upload package smoke artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: chunkshift-package-smoke
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+            artifacts/package-smoke/*.txt
+          if-no-files-found: error
+          retention-days: 7
