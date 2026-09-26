@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    # PR titles become squash-commit titles and must pass the
+    # Conventional Commits check: "build(deps): bump ...".
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      test-tooling:
+        patterns:
+          - "Microsoft.NET.Test.Sdk"
+          - "xunit*"
+          - "coverlet*"
+      analyzers:
+        patterns:
+          - "Microsoft.CodeAnalysis.*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3
+    # "ci(deps): bump ..."
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"

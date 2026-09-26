@@ -1,0 +1,29 @@
+# Categories for GitHub-generated release notes. Labels are applied from the
+# Conventional Commits PR title by .github/workflows/pr-labels.yml; Dependabot
+# adds "dependencies" itself. The notes are an input to curated release text.
+changelog:
+  exclude:
+    labels:
+      - "skip-changelog"
+  categories:
+    - title: Breaking changes
+      labels:
+        - "breaking"
+    - title: Features
+      labels:
+        - "enhancement"
+    - title: Fixes
+      labels:
+        - "bug"
+    - title: Performance
+      labels:
+        - "performance"
+    - title: Documentation
+      labels:
+        - "documentation"
+    - title: Dependencies
+      labels:
+        - "dependencies"
+    - title: Other changes
+      labels:
+        - "*"

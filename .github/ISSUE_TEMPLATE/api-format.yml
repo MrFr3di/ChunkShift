@@ -1,0 +1,49 @@
+name: API or format proposal
+description: Propose a public API, persisted-format, identity or compatibility change
+title: "[API/Format] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Persisted formats and identities (CSM, ProfileId/ProfileFingerprint, HashSuite, ManifestId) are long-lived contracts. Changes need an explicit compatibility decision before implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the concrete use case or compatibility problem. Avoid starting with the desired abstraction.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current contract
+      description: Link the relevant specification under docs/architecture/ and explain why it is insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility impact
+      description: Cover public API, CSM, ProfileId/ProfileFingerprint, HashSuite, NativeAOT and cross-platform determinism as applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include a smaller surface or no-change option.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence needed
+      description: What consumer, prototype, benchmark or vector evidence should decide this?
+    validations:
+      required: true

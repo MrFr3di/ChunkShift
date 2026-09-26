@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a capability that does not change persisted formats or identities
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For public API, CSM format, profile or HashSuite changes, use the "API or format proposal" form instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what stops you today? Describe the use case before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workaround
+      description: How do you handle this with the existing API, and what does it cost?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include solving it in application code on top of ChunkShift.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for the same request.
+          required: true

@@ -1,0 +1,51 @@
+name: Performance regression
+description: Report a measured throughput, allocation, latency or memory regression
+title: "[Perf] "
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Regression summary
+      description: Describe what became slower or larger and why it matters.
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: Baseline version or commit
+    validations:
+      required: true
+  - type: input
+    id: candidate
+    attributes:
+      label: Regressed version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload
+      description: Include chunking profile, HashSuite, input type and size, stream type (seekable, network, request body) and API used.
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Measurements
+      description: Repeated measurements for both versions with their spread, for example throughput, allocations per GiB, peak working set or latency percentiles.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Hardware / OS / architecture / runtime
+      placeholder: "Ryzen 7 7840U, Ubuntu 24.04 x64, .NET 10.0.x, NativeAOT"
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Reproduction method
+      description: Prefer a BenchmarkDotNet or similar repeatable harness over stopwatch-only measurements. Attach or link the code.
+    validations:
+      required: true

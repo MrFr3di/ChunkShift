@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible ChunkShift defect
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Use the private security path linked from SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest code/input/command sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ChunkShift version or commit
+      placeholder: "0.1.4 or abcdef1"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - .NET 8
+        - .NET 10
+        - NativeAOT
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS / architecture
+      placeholder: "Windows 11 x64, Ubuntu 24.04 arm64, ..."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs / evidence
+      description: Paste relevant exception text, stack traces, hashes or deterministic vectors. Remove secrets.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for the same defect.
+          required: true
+        - label: This report does not contain private vulnerability details.
+          required: true
