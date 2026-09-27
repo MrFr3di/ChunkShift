@@ -6,7 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Chu
 
 ## [Unreleased]
 
-The first public release is `0.1.0`.
+## [0.1.0] - 2026-09-27
+
+First public release of ChunkShift Core.
 
 ### Added
 
@@ -17,4 +19,5 @@ The first public release is `0.1.0`.
 - Verification results that separate block CRC, logical totals, `ManifestId`, physical `FileDigest`, profile semantics and content mismatches.
 - `net8.0` and `net10.0` targets; trimming and NativeAOT support.
 
-[Unreleased]: https://github.com/MrFr3di/ChunkShift/commits/main
+[Unreleased]: https://github.com/MrFr3di/ChunkShift/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/MrFr3di/ChunkShift/releases/tag/v0.1.0
