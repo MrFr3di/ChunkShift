@@ -220,6 +220,8 @@ A dependency PR should explain:
 
 Avoid adding dependencies for hypothetical future use.
 
+Updating an existing dependency can be compatibility-sensitive too. `chunkshift.blake3-256.v1` is a persisted identity, so a `Blake3` version or implementation change must reproduce every BLAKE3/`ChunkId`/`ManifestId` conformance vector before merge, and it never changes a `HashSuiteId`. CI runs on every pull request, and the `Conformance` workflow's path filter includes `Directory.Packages.props`, so such an update (Dependabot included) runs the hashing vectors, the CSM vectors, x64/ARM64 determinism and the JIT/NativeAOT package consumers. The package declares `Blake3` as a plain minimum version without an upper bound; an incompatible release must be caught by these checks rather than pre-empted by a version range. `tools/package/check_dependencies.py` keeps the packed runtime dependency surface to exactly `Blake3`.
+
 ## Security
 
 Do not open a public issue for a vulnerability that could enable exploitation, data corruption, denial of service, authenticity bypass, or unsafe parser behavior.

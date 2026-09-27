@@ -63,6 +63,7 @@ Rules:
 - Keep logical identity separate from physical representation: `ManifestId` is not a substitute for the physical `FileDigest`.
 - A cryptographic content hash proves integrity relative to an expected value; it is not an authenticity/signature guarantee.
 - A NuGet/package version change does not itself authorize a persisted-format or identity change.
+- A change to the BLAKE3 implementation or its package version (`Blake3` in `Directory.Packages.props`) is compatibility-sensitive, even as a dependency-only update: it must reproduce every persisted BLAKE3/`ChunkId`/`ManifestId` conformance vector before merge, and swapping the implementation never changes a `HashSuiteId`.
 - Once a public API baseline is shipped, treat it as a downstream consumer contract and use package/API compatibility tooling rather than source compilation alone.
 
 ## Code style and implementation quality
