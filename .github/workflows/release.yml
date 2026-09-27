@@ -10,8 +10,10 @@ name: Release
 #                   only job with id-token: write; gated by the release
 #                   environment.
 #   github-release  creates the immutable v<version> tag on the built commit
-#                   and a draft GitHub Release with the same files; the only
-#                   job with contents: write.
+#                   and publishes the GitHub Release with the same files and
+#                   the CHANGELOG.md section as notes; the only job with
+#                   contents: write. Re-running it after a partial failure
+#                   resumes from the existing tag or draft.
 on:
   workflow_dispatch:
     inputs:
@@ -20,7 +22,7 @@ on:
         required: true
         type: string
       publish_nuget:
-        description: "Publish to nuget.org and create the tag and draft GitHub Release after validation"
+        description: "Publish to nuget.org, then create the tag and publish the GitHub Release"
         required: true
         default: false
         type: boolean
@@ -255,6 +257,42 @@ jobs:
           sha256sum -- *.nupkg *.snupkg > SHA256SUMS
           cat SHA256SUMS
 
+      # Release notes come from the curated CHANGELOG.md section, not from
+      # generated commit lists. A version without a section is refused here,
+      # before anything is published.
+      - name: Prepare release notes from CHANGELOG.md
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          section = None
+          for line in Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines():
+              if line.startswith("## ["):
+                  if section is not None:
+                      break
+                  if line.startswith(f"## [{version}]"):
+                      section = []
+                  continue
+              if section is not None:
+                  section.append(line)
+
+          # Stop before link reference definitions such as "[0.1.0]: https://...".
+          notes = "\n".join(
+              line for line in (section or []) if not (line.startswith("[") and "]: " in line)
+          ).strip()
+          if not notes:
+              sys.exit(f"CHANGELOG.md has no non-empty [{version}] section; add it in the release PR.")
+          Path("artifacts/packages/RELEASE_NOTES.md").write_text(notes + "\n", encoding="utf-8")
+          print(notes)
+          PY
+
       - name: Upload validated release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -263,6 +301,7 @@ jobs:
             artifacts/packages/*.nupkg
             artifacts/packages/*.snupkg
             artifacts/packages/SHA256SUMS
+            artifacts/packages/RELEASE_NOTES.md
           if-no-files-found: error
           retention-days: 90
 
@@ -334,31 +373,45 @@ jobs:
           name: chunkshift-${{ inputs.version }}
           path: artifacts/packages
 
-      - name: Create v${{ inputs.version }} tag and draft release
+      - name: Create v${{ inputs.version }} tag and publish the release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          # Tags the exact commit the published packages were built from.
-          # Fails if the tag already exists; an existing tag is never moved.
-          gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
-            -f ref="refs/tags/v${VERSION}" \
-            -f sha="${GITHUB_SHA}" > /dev/null
+          tag="v${VERSION}"
 
-          prerelease=()
-          if [[ "${VERSION}" == *-* ]]; then prerelease=(--prerelease); fi
+          # Tag the exact commit the published packages were built from. A
+          # re-run accepts a tag that already points to that commit; a tag on
+          # any other commit is never moved.
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" -q .object.sha 2> /dev/null || true)
+          if [[ -z "${existing}" ]]; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs"               -f ref="refs/tags/${tag}"               -f sha="${GITHUB_SHA}" > /dev/null
+          elif [[ "${existing}" != "${GITHUB_SHA}" ]]; then
+            echo "Tag ${tag} already points to ${existing}, not ${GITHUB_SHA}; it is never moved." >&2
+            exit 1
+          fi
 
-          # A draft keeps assets and notes editable; publishing it (with
-          # immutable releases enabled) freezes the tag and assets.
-          gh release create "v${VERSION}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --verify-tag \
-            --draft \
-            "${prerelease[@]}" \
-            --title "ChunkShift ${VERSION}" \
-            --generate-notes \
-            artifacts/packages/*.nupkg \
-            artifacts/packages/*.snupkg \
-            artifacts/packages/SHA256SUMS
+          assets=(artifacts/packages/*.nupkg artifacts/packages/*.snupkg artifacts/packages/SHA256SUMS)
+          state=$(gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" --json isDraft -q .isDraft 2> /dev/null || echo missing)
+          case "${state}" in
+            missing)
+              flags=()
+              if [[ "${VERSION}" == *-* ]]; then flags=(--prerelease --latest=false); else flags=(--latest); fi
+              # Draft first: with immutable releases, assets must be attached
+              # before publication freezes the tag and the assets.
+              gh release create "${tag}"                 --repo "${GITHUB_REPOSITORY}"                 --verify-tag                 --draft                 "${flags[@]}"                 --title "ChunkShift ${VERSION}"                 --notes-file artifacts/packages/RELEASE_NOTES.md                 "${assets[@]}"
+              ;;
+            true)
+              # A draft left by an earlier failed run: attach the same validated files.
+              gh release upload "${tag}" --repo "${GITHUB_REPOSITORY}" --clobber "${assets[@]}"
+              ;;
+            false)
+              echo "Release ${tag} is already published."
+              exit 0
+              ;;
+          esac
+
+          gh release edit "${tag}" --repo "${GITHUB_REPOSITORY}" --draft=false
+          gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" --json url,isDraft,isImmutable -q .

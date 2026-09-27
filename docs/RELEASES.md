@@ -58,14 +58,14 @@ Each published version has exactly one tag: a lowercase `v` followed by the exac
 
 `CHANGELOG.md` is written for users, not copied from the Git log. It follows Keep a Changelog (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`). The maintainer curates it in the release PR; contributors do not edit it in every PR.
 
-Every release gets a dated changelog section and GitHub release notes, with explicit breaking-change and migration notes where they apply. GitHub-generated notes, grouped by the PR labels configured in `.github/release.yml`, are an input to the final text, not a replacement for it.
+Every release gets a dated changelog section, with explicit breaking-change and migration notes where they apply. The release workflow uses that exact section as the GitHub release notes and refuses a version that has none. GitHub-generated notes, grouped by the PR labels configured in `.github/release.yml`, are only an input when writing the changelog section.
 
 ## 6. Release procedure
 
-1. **Release PR.** Title `chore(release): prepare X.Y.Z`. It sets `VersionPrefix` in `src/ChunkShift/ChunkShift.csproj`, moves the `PublicAPI.Unshipped.txt` entries into `PublicAPI.Shipped.txt` (§8.1) and dates the changelog section. Merge it after all intended changes are on `main` and CI is green.
-2. **Dry run.** Dispatch the `Release` workflow from `main` with the version and `publish_nuget: false`. Inspect the uploaded `.nupkg`, `.snupkg` and `SHA256SUMS`.
+1. **Release PR.** Title `chore(release): prepare X.Y.Z`. It sets `VersionPrefix` in `src/ChunkShift/ChunkShift.csproj`, moves the `PublicAPI.Unshipped.txt` entries into `PublicAPI.Shipped.txt` (§8.1) and adds the dated `## [X.Y.Z]` changelog section, which becomes the release notes. Merge it after all intended changes are on `main` and CI is green.
+2. **Dry run.** Dispatch the `Release` workflow from `main` with the version and `publish_nuget: false`. Inspect the uploaded `.nupkg`, `.snupkg`, `SHA256SUMS` and `RELEASE_NOTES.md`. A dry run creates no package, tag or release.
 3. **Publish.** Dispatch the workflow again with `publish_nuget: true`. Approve the `release` environment deployment when prompted.
-4. **Release notes.** The workflow leaves a draft GitHub Release with the packages and checksums attached. Edit the notes, then publish it. With immutable releases enabled, its tag and assets cannot change afterwards.
+4. **GitHub Release.** After nuget.org accepts the package, the workflow creates `vX.Y.Z` on the exact validated commit, creates a draft GitHub Release, attaches the validated `.nupkg`, `.snupkg` and `SHA256SUMS`, and publishes the release. With release immutability enabled, the published tag and assets cannot be replaced; a faulty release is corrected with a new package version.
 5. **Check.** Install the published version into a clean project from nuget.org.
 
 The workflow refuses a version whose `X.Y.Z` differs from `VersionPrefix`, that is not higher than every version already on nuget.org, or whose tag already exists. It builds, tests, packs, inspects and consumes the package (JIT and NativeAOT) once, then publishes those exact files; nothing is rebuilt after validation.
@@ -75,7 +75,7 @@ If a release turns out to be wrong, publish a new version. Never mutate or reuse
 ### 6.1 Recovering a partial run
 
 - **Package published, symbols failed:** re-push the `.snupkg` from the run's `chunkshift-<version>` artifact with `dotnet nuget push <file>.snupkg --skip-duplicate`. Re-running the workflow is refused because the version is already published.
-- **Package published, `github-release` failed:** create the tag on the exact commit the run built (the run's `GITHUB_SHA`), for example `gh api repos/MrFr3di/ChunkShift/git/refs -f ref=refs/tags/v<version> -f sha=<run SHA>`, then create the draft release from the run's artifacts. Never tag a different commit.
+- **Package published, `github-release` failed:** re-run only the failed job (`gh run rerun <run id> --failed`). It reuses the original workflow artifact and the original `GITHUB_SHA`: it keeps a `v<version>` tag that already points to that commit, completes a draft left by the failed attempt, and publishes the release with the original `.nupkg`, `.snupkg` and `SHA256SUMS`. The artifacts are kept for 90 days, so recover within that window; packages downloaded from nuget.org carry its repository signature and no longer match `SHA256SUMS`. Never rebuild the same version and never tag a different commit.
 
 ## 7. Release infrastructure
 
