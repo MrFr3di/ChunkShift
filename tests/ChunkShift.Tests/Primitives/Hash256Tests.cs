@@ -143,6 +143,34 @@ public class Hash256Tests
         Assert.Equal(value.Equals(other), value.FixedTimeEquals(other));
     }
 
+    [Theory]
+    [MemberData(nameof(AllBitIndices))]
+    public void FixedTimeEquals_DetectsEverySingleBitDifference(int bitIndex)
+    {
+        byte[] changed = (byte[])SequenceBytes.Clone();
+        changed[bitIndex / 8] ^= (byte)(1 << (bitIndex % 8));
+
+        Hash256 value = Hash256.FromBytes(SequenceBytes);
+        Hash256 other = Hash256.FromBytes(changed);
+
+        Assert.False(value.Equals(other));
+        Assert.False(value.FixedTimeEquals(other));
+        Assert.False(other.FixedTimeEquals(value));
+        Assert.True(value.FixedTimeEquals(Hash256.FromBytes((byte[])SequenceBytes.Clone())));
+    }
+
+    public static TheoryData<int> AllBitIndices()
+    {
+        var indices = new TheoryData<int>();
+
+        for (int bit = 0; bit < 256; bit++)
+        {
+            indices.Add(bit);
+        }
+
+        return indices;
+    }
+
     [Fact]
     public void FixedTimeEquals_DoesNotAllocate()
     {
