@@ -26,7 +26,6 @@ If private reporting is unavailable, contact the maintainer through GitHub witho
 | --- | --- |
 | latest `0.1.Z` release | yes |
 | older `0.1.Z` releases | upgrade to the latest release |
-| `main` before the first release | yes |
 
 During the pre-1.0 `0.1.Z` train, fixes ship in the next patch release rather than being backported ([docs/SUPPORT.md](docs/SUPPORT.md)).
 

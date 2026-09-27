@@ -7,6 +7,9 @@
 
 **Deterministic content-defined chunking and verifiable binary manifests for .NET.**
 
+[![NuGet](https://img.shields.io/nuget/v/ChunkShift)](https://www.nuget.org/packages/ChunkShift)
+[![NuGet downloads](https://img.shields.io/nuget/dt/ChunkShift)](https://www.nuget.org/packages/ChunkShift)
+[![CI](https://github.com/MrFr3di/ChunkShift/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MrFr3di/ChunkShift/actions/workflows/ci.yml)
 [![.NET 8 | 10](https://img.shields.io/badge/.NET-8%20%7C%2010-512BD4)](#compatibility)
 [![NativeAOT](https://img.shields.io/badge/NativeAOT-compatible-512BD4)](#compatibility)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -27,10 +30,8 @@ Use it to deduplicate stored uploads and build artifacts, measure how much conte
 
 ## Install
 
-After the first public release:
-
 ```bash
-dotnet add package ChunkShift --version 0.1.0
+dotnet add package ChunkShift
 ```
 
 ## Quick start
