@@ -385,8 +385,12 @@ jobs:
 
           # Tag the exact commit the published packages were built from. A
           # re-run accepts a tag that already points to that commit; a tag on
-          # any other commit is never moved.
-          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" -q .object.sha 2> /dev/null || true)
+          # any other commit is never moved. matching-refs answers an empty
+          # list for a missing tag, so a failed lookup stops the job instead
+          # of being mistaken for an existing tag (the error body of a 404 on
+          # git/ref goes to stdout).
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" \
+            --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .object.sha")
           if [[ -z "${existing}" ]]; then
             gh api "repos/${GITHUB_REPOSITORY}/git/refs"               -f ref="refs/tags/${tag}"               -f sha="${GITHUB_SHA}" > /dev/null
           elif [[ "${existing}" != "${GITHUB_SHA}" ]]; then
