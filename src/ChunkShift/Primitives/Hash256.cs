@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 
 namespace ChunkShift.Primitives;
 
@@ -159,19 +160,18 @@ public readonly struct Hash256 : IEquatable<Hash256>
     /// </summary>
     /// <remarks>
     /// Use this when comparing a secret-derived or attacker-probed digest; ordinary
-    /// equality may return at the first differing word. The comparison combines all
-    /// four 64-bit words without branching and allocates nothing.
+    /// equality may return at the first differing word. The comparison is delegated
+    /// to <see cref="System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.ReadOnlySpan{byte}, System.ReadOnlySpan{byte})"/>
+    /// over the two 32-byte encodings, whose run time depends only on the (fixed)
+    /// length, and allocates nothing.
     /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     public bool FixedTimeEquals(Hash256 other)
     {
-        ulong difference =
-            (_a ^ other._a)
-            | (_b ^ other._b)
-            | (_c ^ other._c)
-            | (_d ^ other._d);
+        Span<byte> bytes = stackalloc byte[64];
+        WriteBytes(bytes[..32]);
+        other.WriteBytes(bytes[32..]);
 
-        return difference == 0;
+        return CryptographicOperations.FixedTimeEquals(bytes[..32], bytes[32..]);
     }
 
     /// <inheritdoc />
