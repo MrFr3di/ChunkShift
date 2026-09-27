@@ -175,6 +175,11 @@ jobs:
       - name: Pack exact release artifacts
         run: dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${{ inputs.version }}
 
+      - name: Check package runtime dependencies
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${VERSION}.nupkg"
+
       - name: Inspect package metadata and contents
         shell: bash
         env:
