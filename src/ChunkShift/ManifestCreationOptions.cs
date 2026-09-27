@@ -9,7 +9,8 @@ public sealed class ManifestCreationOptions
 {
     /// <summary>
     /// Gets the chunking profile to persist in the manifest.
-    /// When omitted, ChunkShift uses its current pre-release default candidate.
+    /// When omitted, ChunkShift uses the stable default profile
+    /// <c>fastcdc.gear.chunkshift.v1.64k</c>.
     /// </summary>
     public ChunkingProfileId? ProfileId { get; init; }
 

@@ -15,8 +15,8 @@ public sealed class ChunkScanOptions
     /// Gets the chunking profile to use.
     /// </summary>
     /// <remarks>
-    /// A <see langword="null"/> value selects the current pre-release default.
-    /// The default will be frozen before the first public compatibility release.
+    /// A <see langword="null"/> value selects the stable default profile
+    /// <c>fastcdc.gear.chunkshift.v1.64k</c> (FastCDC, 16 / 64 / 256 KiB).
     /// </remarks>
     public ChunkingProfileId? ProfileId { get; init; }
 
