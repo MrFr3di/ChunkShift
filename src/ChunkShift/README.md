@@ -2,7 +2,19 @@
 
 Deterministic content-defined chunking, streaming binary manifests and verification for .NET.
 
-ChunkShift splits any `Stream` into content-defined chunks with FastCDC, gives each chunk a stable 256-bit content identity (BLAKE3-256 by default, SHA-256 optional), and records the result in a compact binary manifest (CSM) that can be read and verified later. Processing is forward-only and bounded-memory. Core has no dependency on ASP.NET Core, dependency injection or a storage abstraction, and it supports trimming and NativeAOT.
+ChunkShift splits any `Stream` into content-defined chunks, gives each chunk a stable 256-bit content identity, and records the result in a compact binary manifest (CSM) that can be verified later. Because boundaries follow the content rather than fixed offsets, an insertion or deletion only changes the chunks around it — useful for deduplicating uploads and build artifacts, measuring reuse between versions, and verifying large files.
+
+- **FastCDC boundaries**, identical on every supported architecture and execution mode.
+- **BLAKE3-256** chunk identities by default, **SHA-256** available.
+- **Streaming and bounded-memory**; forward-only and non-seekable streams work.
+- **No dependencies on ASP.NET Core, DI or storage abstractions**; trimming- and NativeAOT-compatible.
+- Targets **.NET 8** and **.NET 10**.
+
+## Install
+
+```bash
+dotnet add package ChunkShift
+```
 
 ## Chunk a stream
 
@@ -43,7 +55,7 @@ await using (FileStream manifest = File.OpenRead("build.csm"))
 }
 ```
 
-A content or integrity mismatch is reported through `ManifestVerificationResult`; malformed manifest input throws `InvalidDataException`, and an unknown HashSuite or profile throws `NotSupportedException`.
+A content or integrity mismatch is reported through `ManifestVerificationResult`; malformed manifest input throws `InvalidDataException`, and an unknown HashSuite or profile throws `NotSupportedException`. A matching hash proves integrity against the expected manifest, not authenticity.
 
 ## Persisted contracts
 
@@ -54,16 +66,14 @@ A content or integrity mismatch is reported through `ManifestVerificationResult`
 | HashSuites | `chunkshift.blake3-256.v1` (default), `chunkshift.sha256.v1` |
 | Manifest format | CSM v1 |
 
-The same bytes produce the same chunk boundaries and identities on every supported architecture and execution mode. The package version does not change persisted formats or identities; see the [release policy](https://github.com/MrFr3di/ChunkShift/blob/main/docs/RELEASES.md).
+The package version does not change persisted formats or identities. While ChunkShift is `0.x`, deliberate public API changes can still happen and are always called out in the [changelog](https://github.com/MrFr3di/ChunkShift/blob/main/CHANGELOG.md); see the [release policy](https://github.com/MrFr3di/ChunkShift/blob/main/docs/RELEASES.md).
 
-## Documentation
+## Learn more
 
-- [Repository and full README](https://github.com/MrFr3di/ChunkShift)
-- [Core 0.1 API contract](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/CORE-0.1-API.md)
-- [CSM v1 format](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/CSM-V1.md)
-- [FastCDC profile semantics](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/FASTCDC-V1.md)
+- [Full README](https://github.com/MrFr3di/ChunkShift) and [samples](https://github.com/MrFr3di/ChunkShift/tree/main/samples)
+- [Core API contract](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/CORE-0.1-API.md), [CSM v1 format](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/CSM-V1.md), [FastCDC profile semantics](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/FASTCDC-V1.md)
 - [ASP.NET Core hosting](https://github.com/MrFr3di/ChunkShift/blob/main/docs/ASPNET-CORE.md)
-- [Samples](https://github.com/MrFr3di/ChunkShift/tree/main/samples)
-- [Changelog](https://github.com/MrFr3di/ChunkShift/blob/main/CHANGELOG.md)
 
-Report security vulnerabilities privately as described in [SECURITY.md](https://github.com/MrFr3di/ChunkShift/blob/main/SECURITY.md).
+## Feedback
+
+Questions and bug reports go to [GitHub Issues](https://github.com/MrFr3di/ChunkShift/issues). Report security vulnerabilities privately as described in [SECURITY.md](https://github.com/MrFr3di/ChunkShift/blob/main/SECURITY.md). ChunkShift is licensed under MIT.

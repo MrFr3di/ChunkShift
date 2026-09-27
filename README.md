@@ -1,4 +1,9 @@
-# ChunkShift
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="ChunkShift" src="assets/logo.svg" height="72">
+  </picture>
+</h1>
 
 **Deterministic content-defined chunking and verifiable binary manifests for .NET.**
 
