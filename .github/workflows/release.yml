@@ -207,6 +207,7 @@ jobs:
           check(text("version") == version, f"version is {text('version')!r}")
           check(text("license") == "MIT", f"license is {text('license')!r}")
           check(text("readme") == "README.md" and "README.md" in names, "README.md is missing")
+          check(text("icon") == "icon.png" and "icon.png" in names, "icon.png is missing")
           check(text("projectUrl") == "https://github.com/MrFr3di/ChunkShift", f"projectUrl is {text('projectUrl')!r}")
           check(repository is not None and repository.get("url") == "https://github.com/MrFr3di/ChunkShift",
                 "repository url does not point to MrFr3di/ChunkShift")

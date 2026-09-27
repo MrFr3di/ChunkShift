@@ -13,6 +13,7 @@
     <RepositoryUrl>https://github.com/MrFr3di/ChunkShift</RepositoryUrl>
     <PackageTags>chunking;content-defined-chunking;cdc;fastcdc;content-addressing;deduplication;blake3;manifest</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -26,6 +27,7 @@
                       IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     <!-- Rendered by nuget.org, so it uses absolute links: repository-relative paths do not resolve there. -->
     <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../../assets/icon-128.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 
 </Project>
