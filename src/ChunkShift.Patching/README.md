@@ -57,7 +57,7 @@ await using (FileStream baseContent = File.OpenRead("v1.bin"))
 
 `ChunkPatch.CreateAsync(targetManifest, targetContent, destination)` and `ChunkPatch.ApplyAsync(patch, destinationPath)` do the same without a base.
 
-An integrity failure is reported through `PatchApplyResult.Failures`, and the destination keeps its previous content; malformed input throws `InvalidDataException`, and unsupported HashSuites, encodings or limits throw `NotSupportedException`. A matching hash proves integrity against the expected manifest, not authenticity: verify where a patch comes from before applying it.
+An integrity failure or an exceeded apply limit is reported through `PatchApplyResult.Failures`, and the destination keeps its previous content; malformed input throws `InvalidDataException`; an unsupported HashSuite or encoding, or a manifest over a planning or creation limit, throws `NotSupportedException`. A matching hash proves integrity against the expected manifest, not authenticity: verify where a patch comes from before applying it.
 
 ## Persisted contracts
 

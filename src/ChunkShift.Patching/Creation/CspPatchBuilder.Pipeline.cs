@@ -334,18 +334,18 @@ internal static partial class CspPatchBuilder
                 buffers,
                 cancellationToken).ConfigureAwait(false);
 
+            // The raw form is the target bytes themselves: the entry keeps them.
+            // Rent is the last call that can throw; until it returns the item
+            // still owns its window and target bytes, so the catch below
+            // releases each of them exactly once.
+            byte[] stored = choice.Encoding == CspFormat.EncodingRaw
+                ? item.Target
+                : context.Pool.Rent(choice.Stored.Length);
+
             item.BaseWindow?.Dispose();
 
-            byte[] stored;
-
-            if (choice.Encoding == CspFormat.EncodingRaw)
+            if (choice.Encoding != CspFormat.EncodingRaw)
             {
-                // The raw form is the target bytes themselves: the entry keeps them.
-                stored = item.Target;
-            }
-            else
-            {
-                stored = context.Pool.Rent(choice.Stored.Length);
                 choice.Stored.CopyTo(stored);
                 context.Pool.Return(item.Target);
                 context.Window.Charge(choice.Stored.Length - (long)length);
