@@ -279,6 +279,13 @@ internal static class CspApplier
                         {
                             // A repeated target chunk replays the bytes verified
                             // at its first occurrence instead of decoding again.
+                            // Rule 19 binds every occurrence to its own record
+                            // length, and the reader checked only the first.
+                            if (resolved.Length != record.Length)
+                            {
+                                return PatchApplyFailure.PayloadChunk;
+                            }
+
                             if (chunkBuffer.Length < resolved.Length)
                             {
                                 chunkBuffer = new byte[resolved.Length];
