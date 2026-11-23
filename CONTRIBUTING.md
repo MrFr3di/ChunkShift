@@ -181,6 +181,7 @@ For compatibility-sensitive changes, additional evidence may be required:
 
 - independent FastCDC reference vectors;
 - independent CSM generator/decoder fixtures;
+- independent CSP generator/decoder/forward-apply fixtures;
 - x64/ARM64 deterministic comparison;
 - JIT/NativeAOT package-consumer validation;
 - fuzzing or malformed-input tests;
@@ -198,6 +199,13 @@ dotnet pack src/ChunkShift/ChunkShift.csproj -c Release -o artifacts/packages -p
 dotnet run --project tests/ChunkShift.PackageSmoke -c Release -p:ChunkShiftPackageVersion=0.0.0-local.1 -p:RestoreAdditionalProjectSources=<repo>/artifacts/packages
 ```
 
+For `ChunkShift.Patching`, pack it with the same version and run its consumer. CI runs it a second time with `-p:ChunkShiftCoreVersion=0.1.0` to use the published Core, and both runs must produce identical evidence:
+
+```bash
+dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release -o artifacts/packages -p:PackageVersion=0.0.0-local.1
+dotnet run --project tests/ChunkShift.Patching.PackageSmoke -c Release -p:ChunkShiftPackageVersion=0.0.0-local.1 -p:RestoreAdditionalProjectSources=<repo>/artifacts/packages
+```
+
 The independent conformance tools need only Python 3 and its standard library:
 
 ```bash
@@ -205,7 +213,14 @@ python3 tools/conformance/fastcdc_reference.py --verify
 python3 tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
 ```
 
-The `Conformance` workflow additionally runs the NativeAOT consumer on x64 and ARM64, compares their output and streams a source larger than its memory limit. It runs on PRs that touch Core, tests, tools, build configuration or specifications.
+The independent CSP decoder needs Python 3.14 or later, for `compression.zstd`:
+
+```bash
+python3 tools/conformance/csp/generate.py --verify tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+python3 tools/conformance/csp/forward_apply.py --vectors tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+```
+
+The `Conformance` workflow additionally fuzzes the CSM reader and CSP apply against the independent decoders, runs both NativeAOT consumers on x64 and ARM64, compares their output and streams a source larger than its memory limit. It runs on PRs that touch source, tests, tools, build configuration or specifications.
 
 ## Dependencies
 
@@ -220,7 +235,9 @@ A dependency PR should explain:
 
 Avoid adding dependencies for hypothetical future use.
 
-Updating an existing dependency can be compatibility-sensitive too. `chunkshift.blake3-256.v1` is a persisted identity, so a `Blake3` version or implementation change must reproduce every BLAKE3/`ChunkId`/`ManifestId` conformance vector before merge, and it never changes a `HashSuiteId`. CI runs on every pull request, and the `Conformance` workflow's path filter includes `Directory.Packages.props`, so such an update (Dependabot included) runs the hashing vectors, the CSM vectors, x64/ARM64 determinism and the JIT/NativeAOT package consumers. The package declares `Blake3` as a plain minimum version without an upper bound; an incompatible release must be caught by these checks rather than pre-empted by a version range. `tools/package/check_dependencies.py` keeps the packed runtime dependency surface to exactly `Blake3`.
+Updating an existing dependency can be compatibility-sensitive too. `chunkshift.blake3-256.v1` is a persisted identity, so a `Blake3` version or implementation change must reproduce every BLAKE3/`ChunkId`/`ManifestId` conformance vector before merge, and it never changes a `HashSuiteId`. CI runs on every pull request, and the `Conformance` workflow's path filter includes `Directory.Packages.props`, so such an update (Dependabot included) runs the hashing vectors, the CSM vectors, x64/ARM64 determinism and the JIT/NativeAOT package consumers. The packages declare third-party dependencies as plain minimum versions without an upper bound; an incompatible release must be caught by these checks rather than pre-empted by a version range. `tools/package/check_dependencies.py` keeps the packed runtime dependency surface of `ChunkShift` to exactly `Blake3`, and of `ChunkShift.Patching` to exactly `ChunkShift` (same version), `Blake3` and `ZstdSharp.Port`.
+
+A `ZstdSharp.Port` update, or a replacement zstd backend, is compatibility-sensitive in the same way. CSP v1 is frozen, so the change must reproduce every committed CSP vector (`tools/conformance/csp/generate.py --verify` and the C# vector tests) and pass the zstd frame comparison against the independent decoder (`decode.py --compare-frames` in the `Conformance` workflow). Encoder output may change, because patch bytes are not a contract; decoding and every verdict may not.
 
 ## Security
 

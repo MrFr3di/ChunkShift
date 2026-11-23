@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """Check the runtime dependency surface of a packed ChunkShift package.
 
-The published package intentionally has exactly one runtime dependency,
-Blake3, at a plain minimum version for every shipped target framework. Build
-and analyzer packages such as Microsoft.CodeAnalysis.PublicApiAnalyzers stay
-private to this repository. A new PackageReference would silently widen the
-dependency contract consumers inherit, so this script makes the current
-surface executable: it reads ChunkShift.nuspec from the .nupkg and fails on
-any dependency, version range or framework reference that does not match.
+Each published package has a fixed runtime dependency contract, declared in
+PACKAGES below:
+
+- ChunkShift depends on exactly Blake3, for net8.0 and net10.0;
+- ChunkShift.Patching depends on exactly ChunkShift, Blake3 and
+  ZstdSharp.Port, for net10.0. ChunkShift ships in the same release, so the
+  dependency is the package's own version.
+
+Third-party dependencies are plain minimum versions taken from
+Directory.Packages.props. Build and analyzer packages such as
+Microsoft.CodeAnalysis.PublicApiAnalyzers stay private to this repository. A
+new PackageReference would silently widen the dependency contract consumers
+inherit, so this script makes the current surface executable: it reads the
+nuspec from the .nupkg and fails on any dependency, version range or framework
+reference that does not match.
 
 The script uses only Python's standard library.
 
@@ -22,14 +30,35 @@ import fnmatch
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
-# The complete runtime dependency contract of the package: exactly these
+
+@dataclass(frozen=True)
+class PackageContract:
+    # Third-party runtime dependencies, versioned in Directory.Packages.props.
+    third_party: tuple[str, ...]
+    # ChunkShift packages of the same release, versioned like the package itself.
+    siblings: tuple[str, ...]
+    target_frameworks: tuple[str, ...]
+
+
+# The complete runtime dependency contract of every package: exactly these
 # dependencies, at their plain minimum versions, in every shipped target
-# framework group. Changing this set is a public dependency-contract change
-# and needs an issue; this script is what keeps that decision executable.
-EXPECTED_DEPENDENCIES = ("Blake3",)
-EXPECTED_TARGET_FRAMEWORKS = ("net8.0", "net10.0")
+# framework group. Changing a set is a public dependency-contract change and
+# needs an issue; this table is what keeps that decision executable.
+PACKAGES = {
+    "chunkshift": PackageContract(
+        third_party=("Blake3",),
+        siblings=(),
+        target_frameworks=("net8.0", "net10.0"),
+    ),
+    "chunkshift.patching": PackageContract(
+        third_party=("Blake3", "ZstdSharp.Port"),
+        siblings=("ChunkShift",),
+        target_frameworks=("net10.0",),
+    ),
+}
 
 # Build, analyzer and test packages must never appear in the nuspec. The
 # "expected dependencies" rule would catch them anyway; matching them by name
@@ -41,8 +70,6 @@ PRIVATE_DEPENDENCY_PATTERNS = (
     "coverlet*",
     "benchmarkdotnet*",
 )
-
-NUSPEC_ENTRY = "ChunkShift.nuspec"
 
 FRAMEWORK_REFERENCE_ELEMENTS = ("frameworkReferences", "frameworkAssemblies")
 
@@ -81,12 +108,17 @@ def read_metadata(package: Path) -> ET.Element:
     """Return the nuspec <metadata> element of the package."""
     try:
         with zipfile.ZipFile(package) as archive:
-            try:
-                raw = archive.read(NUSPEC_ENTRY)
-            except KeyError:
+            nuspecs = [
+                name
+                for name in archive.namelist()
+                if "/" not in name and name.lower().endswith(".nuspec")
+            ]
+            if len(nuspecs) != 1:
                 raise CheckError(
-                    f"{package}: the package does not contain {NUSPEC_ENTRY}"
-                ) from None
+                    f"{package}: expected exactly one nuspec at the package "
+                    f"root, found {len(nuspecs)}"
+                )
+            raw = archive.read(nuspecs[0])
     except (OSError, zipfile.BadZipFile) as error:
         raise CheckError(f"{package}: cannot read package: {error}") from error
 
@@ -94,16 +126,37 @@ def read_metadata(package: Path) -> ET.Element:
         root = ET.fromstring(raw)
     except ET.ParseError as error:
         raise CheckError(
-            f"{package}: {NUSPEC_ENTRY} is not well-formed XML: {error}"
+            f"{package}: {nuspecs[0]} is not well-formed XML: {error}"
         ) from error
 
     metadata = _find_child(root, "metadata")
     if metadata is None:
-        raise CheckError(f"{package}: {NUSPEC_ENTRY} has no <metadata> element")
+        raise CheckError(f"{package}: {nuspecs[0]} has no <metadata> element")
     return metadata
 
 
-def expected_versions(packages_props: Path) -> dict[str, str]:
+def package_contract(metadata: ET.Element) -> tuple[str, str, PackageContract]:
+    """Return the package id, its version and its dependency contract."""
+    id_element = _find_child(metadata, "id")
+    version_element = _find_child(metadata, "version")
+    package_id = (id_element.text or "").strip() if id_element is not None else ""
+    version = (
+        (version_element.text or "").strip() if version_element is not None else ""
+    )
+    if not package_id or not version:
+        raise CheckError("the nuspec has no <id> or <version>")
+    contract = PACKAGES.get(package_id.lower())
+    if contract is None:
+        raise CheckError(
+            f"{package_id} is not a known ChunkShift package; known: "
+            + ", ".join(sorted(PACKAGES))
+        )
+    return package_id, version, contract
+
+
+def expected_versions(
+    packages_props: Path, contract: PackageContract, own_version: str
+) -> dict[str, str]:
     """Return the plain minimum version for each expected dependency id."""
     if not packages_props.is_file():
         raise CheckError(f"{packages_props}: file not found")
@@ -113,7 +166,7 @@ def expected_versions(packages_props: Path) -> dict[str, str]:
     except ET.ParseError as error:
         raise CheckError(f"{packages_props}: not well-formed XML: {error}") from error
 
-    expected_ids = {dependency.lower() for dependency in EXPECTED_DEPENDENCIES}
+    expected_ids = {dependency.lower() for dependency in contract.third_party}
     versions: dict[str, str] = {}
 
     for element in root.iter():
@@ -141,11 +194,13 @@ def expected_versions(packages_props: Path) -> dict[str, str]:
             )
         versions[package_id] = version
 
-    for dependency in EXPECTED_DEPENDENCIES:
+    for dependency in contract.third_party:
         if dependency.lower() not in versions:
             raise CheckError(
                 f"{packages_props}: no PackageVersion entry for {dependency}"
             )
+    for sibling in contract.siblings:
+        versions[sibling.lower()] = own_version
     return versions
 
 
@@ -203,12 +258,16 @@ def _framework_reference_violations(metadata: ET.Element) -> list[str]:
     return violations
 
 
+def _expected_ids(contract: PackageContract) -> list[str]:
+    return list(contract.siblings) + list(contract.third_party)
+
+
 def collect_violations(
-    metadata: ET.Element, versions: dict[str, str]
+    metadata: ET.Element, contract: PackageContract, versions: dict[str, str]
 ) -> list[str]:
     """Return every violation of the runtime dependency contract."""
     violations: list[str] = []
-    expected_ids = {dependency.lower() for dependency in EXPECTED_DEPENDENCIES}
+    expected_ids = sorted(dependency.lower() for dependency in _expected_ids(contract))
 
     dependencies = _find_child(metadata, "dependencies")
     groups: list[tuple[str, str, list[ET.Element]]] = []
@@ -244,10 +303,10 @@ def collect_violations(
                 )
 
     observed_targets = sorted(target for _, target, _ in groups)
-    if observed_targets != sorted(EXPECTED_TARGET_FRAMEWORKS):
+    if observed_targets != sorted(contract.target_frameworks):
         violations.append(
             "dependency groups must be exactly "
-            + ", ".join(EXPECTED_TARGET_FRAMEWORKS)
+            + ", ".join(contract.target_frameworks)
             + "; found "
             + (
                 ", ".join(
@@ -261,31 +320,29 @@ def collect_violations(
         label = raw or "(missing targetFramework)"
         for entry in entries:
             violations.extend(_dependency_violations(entry, versions))
-        if len(entries) != 1:
+        observed_ids = sorted(_dependency_id(entry).lower() for entry in entries)
+        if observed_ids != expected_ids:
             violations.append(
-                f"dependency group '{label}' must contain exactly one "
-                f"dependency, found {len(entries)}: "
+                f"dependency group '{label}' must contain exactly "
+                + ", ".join(_expected_ids(contract))
+                + "; found "
                 + (", ".join(_dependency_id(entry) for entry in entries) or "none")
-            )
-        elif _dependency_id(entries[0]).lower() not in expected_ids:
-            violations.append(
-                f"dependency group '{label}' must contain exactly one dependency "
-                "with id " + " or ".join(EXPECTED_DEPENDENCIES) + ", found "
-                f"'{_dependency_id(entries[0])}'"
             )
 
     violations.extend(_framework_reference_violations(metadata))
     return violations
 
 
-def success_line(versions: dict[str, str]) -> str:
+def success_line(
+    package_id: str, contract: PackageContract, versions: dict[str, str]
+) -> str:
     dependencies = ", ".join(
         f"{dependency} >= {versions[dependency.lower()]}"
-        for dependency in EXPECTED_DEPENDENCIES
+        for dependency in _expected_ids(contract)
     )
     return (
-        "ChunkShift package runtime dependencies OK: "
-        + ", ".join(EXPECTED_TARGET_FRAMEWORKS)
+        f"{package_id} package runtime dependencies OK: "
+        + ", ".join(contract.target_frameworks)
         + f" -> {dependencies}"
     )
 
@@ -298,36 +355,37 @@ def main() -> int:
     parser.add_argument(
         "package",
         type=Path,
-        help="Path to the ChunkShift .nupkg to check.",
+        help="Path to the ChunkShift or ChunkShift.Patching .nupkg to check.",
     )
     parser.add_argument(
         "--packages-props",
         type=Path,
         default=Path("Directory.Packages.props"),
-        help="Directory.Packages.props that owns the expected dependency "
-        "versions.",
+        help="Directory.Packages.props that owns the expected third-party "
+        "dependency versions.",
     )
     args = parser.parse_args()
 
     try:
-        versions = expected_versions(args.packages_props)
         metadata = read_metadata(args.package)
+        package_id, version, contract = package_contract(metadata)
+        versions = expected_versions(args.packages_props, contract, version)
     except CheckError as error:
         print(error, file=sys.stderr)
         return 2
 
-    violations = collect_violations(metadata, versions)
+    violations = collect_violations(metadata, contract, versions)
     for violation in violations:
         print(violation, file=sys.stderr)
     if violations:
         print(
-            "ChunkShift package runtime dependency check FAILED: "
+            f"{package_id} package runtime dependency check FAILED: "
             f"{len(violations)} violation(s)",
             file=sys.stderr,
         )
         return 1
 
-    print(success_line(versions))
+    print(success_line(package_id, contract, versions))
     return 0
 
 

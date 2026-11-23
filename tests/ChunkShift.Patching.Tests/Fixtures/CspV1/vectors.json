@@ -1,0 +1,1108 @@
+{
+  "bases": {
+    "base-a": {
+      "content": "base-a.bin",
+      "manifest": "base-a.csm"
+    },
+    "base-a-bad-manifest": {
+      "content": "base-a-bad-manifest.bin",
+      "manifest": "base-a-bad-manifest.csm"
+    },
+    "base-a-blake3": {
+      "content": "base-a-blake3.bin",
+      "manifest": "base-a-blake3.csm"
+    },
+    "base-a-blake3-corrupt-content": {
+      "content": "base-a-blake3-corrupt-content.bin",
+      "manifest": "base-a-blake3-corrupt-content.csm"
+    },
+    "base-a-corrupt-content": {
+      "content": "base-a-corrupt-content.bin",
+      "manifest": "base-a-corrupt-content.csm"
+    },
+    "base-a-corrupt-dictionary": {
+      "content": "base-a-corrupt-dictionary.bin",
+      "manifest": "base-a-corrupt-dictionary.csm"
+    },
+    "base-b": {
+      "content": "base-b.bin",
+      "manifest": "base-b.csm"
+    },
+    "base-magic": {
+      "content": "base-magic.bin",
+      "manifest": "base-magic.csm"
+    }
+  },
+  "format": "CSP v1",
+  "generator": "tools/conformance/csp/generate.py",
+  "hashSuite": "chunkshift.sha256.v1",
+  "profileId": "fixture.csm.synthetic.v1",
+  "vectors": {
+    "aux-after-pidx.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "aux-required.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 4,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "base-after-payl.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 13,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "base-chunk-corrupt.csp": {
+      "base": "base-a-corrupt-content",
+      "expect": {
+        "failures": [
+          "BaseChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "base-hash-suite.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "failures": [
+          "BaseMismatch"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "base-length.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 13,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "base-manifest-integrity.csp": {
+      "base": "base-a-bad-manifest",
+      "expect": {
+        "failures": [
+          "BaseManifest"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "base-missing-dependent.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 13,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "base-not-supplied.csp": {
+      "expect": {
+        "failures": [
+          "BaseMismatch"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "base-other-manifest.csp": {
+      "base": "base-b",
+      "expect": {
+        "failures": [
+          "BaseMismatch"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "base-required.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 4,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "base-twice.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 13,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "blake3-base-chunk-corrupt.csp": {
+      "base": "base-a-blake3-corrupt-content",
+      "expect": {
+        "failures": [
+          "BaseChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "blake3-base-sha256.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "BaseMismatch"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "blake3-patch-file-digest.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "failures": [
+          "FileDigest"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "blake3-payload-hash.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "failures": [
+          "PayloadChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "blake3-sha256-chunk-ids.csp": {
+      "expect": {
+        "failures": [
+          "PayloadChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "blake3-tcsm-integrity.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "failures": [
+          "EmbeddedManifest"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "bytes-after-trailer.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "duplicate-payload.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "DuplicatePayload"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "duplicate-pidx.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "duplicate-tcsm.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "first-index-later-occurrence.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 12,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "first-index-out-of-range.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 12,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "foot-base-offset.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 15,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "foot-entry-count.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 15,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "foot-payl-count.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 15,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "foot-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "foot-tcsm-offset.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 15,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "missing-foot.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "missing-payload.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "MissingPayload"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "missing-pidx.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "missing-tcsm.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "patch-file-digest.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "FileDigest"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "payl-after-aux.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-crc.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 9,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-entry-count-zero.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 8,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-entry-overrun.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 8,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-entry-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-first-ordinal.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 8,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-length-mismatch.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 8,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payl-stored-zero.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 8,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "payload-entry-limit.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 26,
+        "verdict": "limit"
+      },
+      "maxPayloadEntries": 2,
+      "stage": "structure"
+    },
+    "payload-hash.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "PayloadChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "payload-not-in-target.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "PayloadNotInTarget"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "physical-length.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 6,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-count-mismatch.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 11,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-crc.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 9,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-encoding.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 11,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-entry-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-length.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 10,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-offset.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 12,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-order.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 12,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-stored-length.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 11,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "pidx-version.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 10,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "preamble-magic.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 1,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "preamble-major.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 1,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "preamble-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 1,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "preamble-size.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 1,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "profile-semantics.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "ProfileSemantics"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "raw-length-mismatch.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "PayloadLength"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "raw-with-dictionary.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 27,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "required-feature.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 2,
+        "verdict": "unsupported"
+      },
+      "stage": "structure"
+    },
+    "section-flag-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "section-length-overflow.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 7,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "self-contained-base-other.csp": {
+      "base": "base-b",
+      "expect": {
+        "failures": [
+          "BaseMismatch"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "stored-longer-than-chunk.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "PayloadLength"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "tcsm-integrity.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "EmbeddedManifest"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "structure"
+    },
+    "tcsm-malformed.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 14,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "trailer-foot-offset.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 15,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "trailer-magic.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "trailer-major.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "trailer-reserved.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 3,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-base-end.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-base-header.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-foot-end.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-foot-header.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-payl-end.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-payl-header.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-pidx-end.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-pidx-header.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-preamble.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 7,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-tcsm-end.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-tcsm-header.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 7,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "truncated-trailer-half.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 5,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "unknown-encoding.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 16,
+        "verdict": "unsupported"
+      },
+      "stage": "structure"
+    },
+    "unknown-hash-suite.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 16,
+        "verdict": "unsupported"
+      },
+      "stage": "structure"
+    },
+    "unknown-required.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 4,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "valid-4097-entries.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 12291,
+        "outputSha256": "67ffde88a6c53147422d72d0d9cf853a6d9fd4e32bb5a1d51ec09b2e25638f70",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-aux-and-unknown-optional.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 5683,
+        "outputSha256": "1d262a35d40b911a501853e0e35d87a18b34820598446aac83f00e7794d8130d",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-base-dependent.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 5683,
+        "outputSha256": "1d262a35d40b911a501853e0e35d87a18b34820598446aac83f00e7794d8130d",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-blake3-base-dependent.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 5683,
+        "outputSha256": "1d262a35d40b911a501853e0e35d87a18b34820598446aac83f00e7794d8130d",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-blake3-self-contained.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 4112,
+        "outputSha256": "d430ffa5a895b374b1479ea5da5a47d1cc67540ae954dfc08b16000dfc2447b6",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-blake3-zstd-dictionary.csp": {
+      "base": "base-a-blake3",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 2800,
+        "outputSha256": "63bd36a875fa7f80e980cc4b080257a70e474165bc8dd2851a5770a5d76d6317",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-multiple-payl.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 5683,
+        "outputSha256": "1d262a35d40b911a501853e0e35d87a18b34820598446aac83f00e7794d8130d",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-no-payload.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 4100,
+        "outputSha256": "dd4365371a92ca3035f06576f9f633714197c9f9777574ae2cd8bc86f1742aec",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-one-chunk.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 750,
+        "outputSha256": "e63805b8feed50dd116ad00a81f88e404db25ba992037953dba0cdb99f03d496",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-optional-feature-bit.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 5683,
+        "outputSha256": "1d262a35d40b911a501853e0e35d87a18b34820598446aac83f00e7794d8130d",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-self-contained-with-base-unsupplied.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 4112,
+        "outputSha256": "d430ffa5a895b374b1479ea5da5a47d1cc67540ae954dfc08b16000dfc2447b6",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-self-contained-with-base.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 4112,
+        "outputSha256": "d430ffa5a895b374b1479ea5da5a47d1cc67540ae954dfc08b16000dfc2447b6",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "valid-self-contained.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 4112,
+        "outputSha256": "d430ffa5a895b374b1479ea5da5a47d1cc67540ae954dfc08b16000dfc2447b6",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-bad-content-checksum.csp": {
+      "expect": {
+        "rule": 30,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-content-checksum.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 900,
+        "outputSha256": "967dcabb78ed6db5d8911bb78c322b35be9293c96d5d5981fa540c4adde19b0c",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-decodes-other-bytes.csp": {
+      "expect": {
+        "failures": [
+          "PayloadChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "zstd-dictionary-chunk-corrupt.csp": {
+      "base": "base-a-corrupt-dictionary",
+      "expect": {
+        "failures": [
+          "DictionaryChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "zstd-dictionary-id.csp": {
+      "expect": {
+        "rule": 30,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-dictionary-magic.csp": {
+      "base": "base-magic",
+      "expect": {
+        "failures": [
+          "DictionaryChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "zstd-dictionary-not-in-base.csp": {
+      "base": "base-a",
+      "expect": {
+        "failures": [
+          "DictionaryChunk"
+        ],
+        "verdict": "verification"
+      },
+      "stage": "apply"
+    },
+    "zstd-five-dictionary-chunks.csp": {
+      "base": "base-a",
+      "expect": {
+        "rule": 27,
+        "verdict": "malformed"
+      },
+      "stage": "structure"
+    },
+    "zstd-four-dictionary-chunks.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 1000,
+        "outputSha256": "a3731406b33290695fa10163f366300054daeffae1ebbbea146e18b681d15bb5",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-leading-skippable-frame.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-no-content-size.csp": {
+      "expect": {
+        "rule": 30,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-no-dictionary.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 900,
+        "outputSha256": "967dcabb78ed6db5d8911bb78c322b35be9293c96d5d5981fa540c4adde19b0c",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-not-a-frame.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-one-dictionary-chunk.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 2800,
+        "outputSha256": "63bd36a875fa7f80e980cc4b080257a70e474165bc8dd2851a5770a5d76d6317",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-reserved-block-type.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-rle-with-dictionary.csp": {
+      "base": "base-a",
+      "expect": {
+        "dependsOnBase": true,
+        "outputLength": 750,
+        "outputSha256": "3fb24cdca8c342eba2ee770dba5425bde83d7f84d0422a8f51f7807ddb4af638",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-second-frame.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-trailing-bytes.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-trailing-skippable-frame.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-truncated-frame.csp": {
+      "expect": {
+        "rule": 29,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-window-descriptor.csp": {
+      "expect": {
+        "dependsOnBase": false,
+        "outputLength": 750,
+        "outputSha256": "3fb24cdca8c342eba2ee770dba5425bde83d7f84d0422a8f51f7807ddb4af638",
+        "verdict": "valid"
+      },
+      "stage": "apply"
+    },
+    "zstd-window-over-1mib.csp": {
+      "expect": {
+        "rule": 30,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    },
+    "zstd-wrong-content-size.csp": {
+      "expect": {
+        "rule": 30,
+        "verdict": "malformed"
+      },
+      "stage": "apply"
+    }
+  }
+}

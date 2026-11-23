@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ChunkShift/ChunkShift.csproj" />
+    <Project Path="src/ChunkShift.Patching/ChunkShift.Patching.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ChunkShift.Patching.Tests/ChunkShift.Patching.Tests.csproj" />
     <Project Path="tests/ChunkShift.Tests/ChunkShift.Tests.csproj" />
   </Folder>
 </Solution>

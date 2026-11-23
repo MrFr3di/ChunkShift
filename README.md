@@ -8,6 +8,7 @@
 **Deterministic content-defined chunking and verifiable binary manifests for .NET.**
 
 [![NuGet](https://img.shields.io/nuget/v/ChunkShift)](https://www.nuget.org/packages/ChunkShift)
+[![NuGet ChunkShift.Patching](https://img.shields.io/nuget/v/ChunkShift.Patching?label=nuget%20patching)](https://www.nuget.org/packages/ChunkShift.Patching)
 [![NuGet downloads](https://img.shields.io/nuget/dt/ChunkShift)](https://www.nuget.org/packages/ChunkShift)
 [![CI](https://github.com/MrFr3di/ChunkShift/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MrFr3di/ChunkShift/actions/workflows/ci.yml)
 [![.NET 8 | 10](https://img.shields.io/badge/.NET-8%20%7C%2010-512BD4)](#compatibility)
@@ -17,6 +18,8 @@
 ChunkShift splits any `Stream` into content-defined chunks, gives each chunk a stable 256-bit content identity, and records the result in a compact binary manifest (CSM) that can be read and verified later. Chunk boundaries follow the content rather than fixed offsets, so insertions or deletions do not force every later block to move with them.
 
 Use it to deduplicate stored uploads and build artifacts, measure how much content two versions can reuse, or verify large binary files against a manifest. Processing is streaming and bounded-memory, and Core does not require a server, dependency injection, or ASP.NET Core.
+
+The separate [`ChunkShift.Patching`](src/ChunkShift.Patching/README.md) package builds on the manifests: it turns two versions of a file into a compact, verified CSP patch and rebuilds the new version from the old one.
 
 ## Highlights
 
@@ -32,6 +35,12 @@ Use it to deduplicate stored uploads and build artifacts, measure how much conte
 
 ```bash
 dotnet add package ChunkShift
+```
+
+For binary patches between versions (.NET 10):
+
+```bash
+dotnet add package ChunkShift.Patching
 ```
 
 ## Quick start
@@ -121,6 +130,36 @@ while ((count = await reader.ReadAsync(batch)) > 0)
 Console.WriteLine(reader.VerificationResult?.IsValid);
 ```
 
+### Patch one version into another
+
+`ChunkShift.Patching` stores only the chunks the base does not already have, raw or zstd-compressed against nearby base chunks. Apply verifies every chunk and publishes the destination only after every check has passed.
+
+```csharp
+using ChunkShift.Patching;
+
+await using (FileStream baseManifest = File.OpenRead("v1.csm"))
+await using (FileStream baseContent = File.OpenRead("v1.bin"))
+await using (FileStream targetManifest = File.OpenRead("v2.csm"))
+await using (FileStream targetContent = File.OpenRead("v2.bin"))
+await using (FileStream patch = new("v1-to-v2.csp", FileMode.CreateNew, FileAccess.Write))
+{
+    await ChunkPatch.CreateAsync(
+        baseManifest, baseContent, targetManifest, targetContent, patch);
+}
+
+await using (FileStream patch = File.OpenRead("v1-to-v2.csp"))
+await using (FileStream baseManifest = File.OpenRead("v1.csm"))
+await using (FileStream baseContent = File.OpenRead("v1.bin"))
+{
+    PatchApplyResult result =
+        await ChunkPatch.ApplyAsync(patch, baseManifest, baseContent, "v2.bin");
+
+    Console.WriteLine(result.IsApplied ? "applied" : $"rejected: {result.Failures}");
+}
+```
+
+See the [package README](src/ChunkShift.Patching/README.md) for planning, self-contained patches and the error model.
+
 Complete console and ASP.NET Core examples live under [`samples/`](samples/README.md).
 
 ## Common tasks
@@ -131,6 +170,7 @@ Complete console and ASP.NET Core examples live under [`samples/`](samples/READM
 | Measure reusable content between versions | Read one manifest with `ManifestReader` and scan the other version with `ChunkScanner.ScanAsync` |
 | Check content against a manifest | `ChunkManifest.VerifyAsync(content, manifest)` |
 | Check a manifest without the original content | `ChunkManifest.VerifyManifestAsync(manifest)` |
+| Ship only what changed between two versions | `ChunkPatch.CreateAsync` / `ChunkPatch.ApplyAsync` (`ChunkShift.Patching`) |
 | Use SHA-256 instead of BLAKE3 | Set the HashSuite in `ChunkScanOptions` or `ManifestCreationOptions` |
 | Process large ASP.NET Core uploads | Pass `HttpRequest.Body` and `HttpContext.RequestAborted` directly ([guide](docs/ASPNET-CORE.md)) |
 
@@ -177,6 +217,7 @@ Its stable profile fingerprint is:
 | HashSuite identifiers and hash domains | Persisted contract. |
 | CSM format and logical identity semantics | Persisted contract. |
 | `ManifestId` vs `FileDigest` distinction | Persisted semantic contract. |
+| CSP v1 patch format | Persisted contract. Patch bytes themselves are not: another version may encode differently, never reconstruct differently. |
 
 Performance work does not redefine persisted identity. An optimized implementation must reproduce the same contract-defined output unless a reviewed compatibility change introduces a new identity/version.
 
@@ -184,7 +225,7 @@ Performance work does not redefine persisted identity. An optimized implementati
 
 | Area | Support |
 | --- | --- |
-| Target frameworks | `net8.0`, `net10.0` |
+| Target frameworks | Core: `net8.0`, `net10.0`; Patching: `net10.0` |
 | NativeAOT | Supported |
 | Trimming | Supported |
 | Input model | Forward-only and non-seekable `Stream` |
@@ -197,11 +238,12 @@ See [`docs/SUPPORT.md`](docs/SUPPORT.md) for the detailed support matrix.
 
 ```text
 src/ChunkShift/        Core implementation
+src/ChunkShift.Patching/  CSP patch creation and verified apply
 tests/                 correctness, compatibility and package-consumer gates
 samples/               minimal console and ASP.NET Core consumers
-docs/architecture/     normative contracts (API, CSM, FastCDC, profile fingerprint)
+docs/architecture/     normative contracts (API, CSM, CSP, FastCDC, profile fingerprint)
 docs/                  hosting, support and release policy
-tools/conformance/     independent FastCDC and CSM reference tooling
+tools/conformance/     independent FastCDC, CSM and CSP reference tooling
 AGENTS.md              standing rules for coding agents
 CONTRIBUTING.md        contribution workflow
 ```
@@ -226,6 +268,7 @@ dotnet test ChunkShift.slnx -c Release --no-build --no-restore
 
 - [Core 0.1 API contract](docs/architecture/CORE-0.1-API.md)
 - [CSM v1 format specification](docs/architecture/CSM-V1.md)
+- [CSP v1 patch format specification](docs/architecture/CSP-V1.md)
 - [FastCDC profile semantics](docs/architecture/FASTCDC-V1.md)
 - [Profile fingerprint](docs/architecture/PROFILE-FINGERPRINT-V1.md)
 - [Hosting in ASP.NET Core](docs/ASPNET-CORE.md)

@@ -53,12 +53,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # One run per target framework so each report is attributable;
-          # ChunkShift.Tests is the only test project in ChunkShift.slnx.
+          # One run per test project and target framework so each report is
+          # attributable. ChunkShift.Patching targets net10.0 only.
           for tfm in net8.0 net10.0; do
             dotnet test tests/ChunkShift.Tests/ChunkShift.Tests.csproj -c Release --no-build --no-restore \
               -f "$tfm" --collect "XPlat Code Coverage" --results-directory "artifacts/coverage/$tfm"
           done
+          dotnet test tests/ChunkShift.Patching.Tests/ChunkShift.Patching.Tests.csproj -c Release --no-build --no-restore \
+            --collect "XPlat Code Coverage" --results-directory "artifacts/coverage/patching-net10.0"
 
       - name: Coverage summary
         if: matrix.os == 'ubuntu-24.04'
@@ -73,8 +75,8 @@ jobs:
           if not reports:
               raise SystemExit("no coverage reports were produced")
 
-          print("### Core coverage\n")
-          print("| Target framework | Lines | Branches |")
+          print("### Coverage\n")
+          print("| Test run | Lines | Branches |")
           print("|---|---|---|")
           for report in reports:
               root = ET.parse(report).getroot()
@@ -99,7 +101,46 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/conformance/fastcdc_reference.py --verify
+          python3 tools/conformance/csm/blake3_reference.py
           python3 tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
+
+      - name: Set up Python 3.14 for the CSP decoder
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Verify the CSP vectors with the independent tools
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The decoder needs the standard-library zstd module; fail here rather
+          # than fall back to a third-party package.
+          python -c "import sys; from compression import zstd; print(sys.version, zstd.zstd_version_info)"
+          python tools/conformance/csp/generate.py --verify tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+          # A forward-only applier must reach the same verdicts (CSP-V1 section 6).
+          python tools/conformance/csp/forward_apply.py --vectors tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+
+      - name: Decode created patches with the independent decoder
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Absolute: the test process runs in its own output directory.
+          dump="$PWD/artifacts/csp-dump"
+          CHUNKSHIFT_CSP_DUMP="$dump" dotnet test tests/ChunkShift.Patching.Tests/ChunkShift.Patching.Tests.csproj \
+            -c Release --no-build --no-restore --filter "FullyQualifiedName~ScenarioPatches_AreDumped"
+          count=0
+          for patch in "$dump"/*.csp; do
+            name="${patch%.csp}"
+            actual=$(python tools/conformance/csp/decode.py "$patch" --base-manifest "$name.base.csm" --base "$name.base.bin" \
+              | python -c 'import json, sys; v = json.load(sys.stdin); assert v["verdict"] == "valid", v; print(v["outputSha256"])')
+            test "$actual" = "$(cat "$name.target.sha256")"
+            count=$((count + 1))
+          done
+          test "$count" -gt 0
+          echo "$count created patches reconstruct their targets"
 
   package-smoke:
     name: package-smoke
@@ -121,14 +162,20 @@ jobs:
       - name: Restore
         run: dotnet restore ChunkShift.slnx
 
-      - name: Build package project
-        run: dotnet build src/ChunkShift/ChunkShift.csproj -c Release --no-restore
+      - name: Build package projects
+        run: |
+          dotnet build src/ChunkShift/ChunkShift.csproj -c Release --no-restore
+          dotnet build src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
+        run: |
+          dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
+          dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
 
       - name: Check package runtime dependencies
-        run: python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${PACKAGE_VERSION}.nupkg"
+        run: |
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${PACKAGE_VERSION}.nupkg"
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.Patching.${PACKAGE_VERSION}.nupkg"
 
       - name: Consume produced package
         shell: bash
@@ -139,6 +186,21 @@ jobs:
             -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
             -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
             -- --evidence artifacts/package-smoke/jit-linux-x64.txt
+
+      - name: Consume produced Patching package
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -- --evidence artifacts/package-smoke/patching-jit-linux-x64.txt
+          # The same packed Patching package over the published Core 0.1.0.
+          dotnet run --project tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" -p:ChunkShiftCoreVersion=0.1.0 \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -- --evidence artifacts/package-smoke/patching-core-0.1.0.txt
+          diff -u artifacts/package-smoke/patching-jit-linux-x64.txt artifacts/package-smoke/patching-core-0.1.0.txt
 
       - name: Build and run samples against produced package
         shell: bash
@@ -238,4 +300,82 @@ jobs:
             artifacts/packages/*.snupkg
             artifacts/package-smoke/*.txt
           if-no-files-found: error
+          retention-days: 7
+
+  # A real packed Patching consumer on Windows, for its file-sharing and rename
+  # semantics; the Linux package-smoke job above is Bash-specific.
+  patching-package-smoke-windows:
+    name: patching-package-smoke (windows-2025)
+    needs: build-test
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PACKAGE_VERSION: 0.0.0-ci.${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ChunkShift.slnx
+
+      - name: Build package projects
+        shell: pwsh
+        run: |
+          dotnet build src/ChunkShift/ChunkShift.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/packages | Out-Null
+          dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages "-p:PackageVersion=$env:PACKAGE_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-build --no-restore -o artifacts/packages "-p:PackageVersion=$env:PACKAGE_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Consume Patching with packed Core and published Core 0.1.0
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $feed = Join-Path $env:GITHUB_WORKSPACE 'artifacts/packages'
+          $evidence = Join-Path $env:GITHUB_WORKSPACE 'artifacts/package-smoke'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          $packed = Join-Path $evidence 'patching-windows-packed-core.txt'
+          $released = Join-Path $evidence 'patching-windows-published-core-0.1.0.txt'
+          $project = 'tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj'
+          dotnet run --project $project -c Release "-p:ChunkShiftPackageVersion=$env:PACKAGE_VERSION" "-p:RestoreAdditionalProjectSources=$feed" -- --evidence $packed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -c Release "-p:ChunkShiftPackageVersion=$env:PACKAGE_VERSION" "-p:ChunkShiftCoreVersion=0.1.0" "-p:RestoreAdditionalProjectSources=$feed" -- --evidence $released
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($path in @($packed, $released)) {
+            $lines = Get-Content -LiteralPath $path
+            if ($lines -cnotcontains 'suite=chunkshift.sha256.v1 public-facade-contract=pass') {
+              throw "Missing SHA-256 public-facade contract evidence: $path"
+            }
+            if ($lines -cnotcontains 'suite=chunkshift.blake3-256.v1 public-facade-contract=pass') {
+              throw "Missing BLAKE3 public-facade contract evidence: $path"
+            }
+          }
+          $h1 = (Get-FileHash -LiteralPath $packed -Algorithm SHA256).Hash
+          $h2 = (Get-FileHash -LiteralPath $released -Algorithm SHA256).Hash
+          if ($h1 -ne $h2) {
+            throw 'Patching evidence differs between packed and published Core'
+          }
+          Write-Host 'Windows packed Patching over packed and published Core 0.1.0: identical evidence'
+
+      - name: Upload Windows Patching consumer evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: patching-package-consumer-windows
+          path: artifacts/package-smoke/patching-windows-*.txt
+          if-no-files-found: warn
           retention-days: 7

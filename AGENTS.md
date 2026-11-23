@@ -64,6 +64,7 @@ Rules:
 - A cryptographic content hash proves integrity relative to an expected value; it is not an authenticity/signature guarantee.
 - A NuGet/package version change does not itself authorize a persisted-format or identity change.
 - A change to the BLAKE3 implementation or its package version (`Blake3` in `Directory.Packages.props`) is compatibility-sensitive, even as a dependency-only update: it must reproduce every persisted BLAKE3/`ChunkId`/`ManifestId` conformance vector before merge, and swapping the implementation never changes a `HashSuiteId`.
+- A change to the zstd implementation or its package version (`ZstdSharp.Port` in `Directory.Packages.props`, or a replacement backend) is compatibility-sensitive in the same way: CSP v1 is frozen, so it must reproduce every committed CSP vector and pass the zstd frame comparison against the independent decoder. Encoder output may change (patch bytes are not a contract); decoding and every verdict may not.
 - Once a public API baseline is shipped, treat it as a downstream consumer contract and use package/API compatibility tooling rather than source compilation alone.
 
 ## Code style and implementation quality
