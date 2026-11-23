@@ -18,7 +18,7 @@ First release of `ChunkShift.Patching`, published together with ChunkShift Core 
   - `ChunkPatch.ApplyAsync` checks every chunk against its identity and publishes the destination only after every check has passed; integrity failures are reported through `PatchApplyResult`, and the destination keeps its previous content.
   - Apply also re-chunks the reconstruction and compares it with the embedded manifest, can update the base file in place, and reports exceeded CSP resource limits as `PatchApplyFailure.ResourceLimit`.
   - Trimming and NativeAOT support.
-- CSP v1 format specification ([docs/architecture/CSP-V1.md](docs/architecture/CSP-V1.md)) with committed conformance vectors and an independent Python generator, decoder and forward-only apply.
+- CSP v1 format specification ([docs/architecture/CSP-V1.md](https://github.com/MrFr3di/ChunkShift/blob/main/docs/architecture/CSP-V1.md)) with committed conformance vectors and an independent Python generator, decoder and forward-only apply.
 
 ### Changed
 
