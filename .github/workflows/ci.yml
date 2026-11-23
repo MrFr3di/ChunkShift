@@ -195,12 +195,19 @@ jobs:
             -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
             -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
             -- --evidence artifacts/package-smoke/patching-jit-linux-x64.txt
-          # The same packed Patching package over the published Core 0.1.0.
+          # The same packed Patching package over the published Core of this
+          # VersionPrefix, when there is one (none yet in a release PR).
+          core=$(python3 tools/package/published_core_version.py)
+          if [[ -z "${core}" ]]; then
+            echo "::notice::No published ChunkShift matches VersionPrefix yet; skipping the published-Core Patching run."
+            exit 0
+          fi
+          echo "published Core: ${core}"
           dotnet run --project tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
-            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" -p:ChunkShiftCoreVersion=0.1.0 \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" -p:ChunkShiftCoreVersion="${core}" \
             -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
-            -- --evidence artifacts/package-smoke/patching-core-0.1.0.txt
-          diff -u artifacts/package-smoke/patching-jit-linux-x64.txt artifacts/package-smoke/patching-core-0.1.0.txt
+            -- --evidence artifacts/package-smoke/patching-published-core.txt
+          diff -u artifacts/package-smoke/patching-jit-linux-x64.txt artifacts/package-smoke/patching-published-core.txt
 
       - name: Build and run samples against produced package
         shell: bash
@@ -341,7 +348,7 @@ jobs:
           dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-build --no-restore -o artifacts/packages "-p:PackageVersion=$env:PACKAGE_VERSION"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Consume Patching with packed Core and published Core 0.1.0
+      - name: Consume Patching with packed Core and published Core
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -349,13 +356,24 @@ jobs:
           $evidence = Join-Path $env:GITHUB_WORKSPACE 'artifacts/package-smoke'
           New-Item -ItemType Directory -Force -Path $evidence | Out-Null
           $packed = Join-Path $evidence 'patching-windows-packed-core.txt'
-          $released = Join-Path $evidence 'patching-windows-published-core-0.1.0.txt'
+          $released = Join-Path $evidence 'patching-windows-published-core.txt'
           $project = 'tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj'
           dotnet run --project $project -c Release "-p:ChunkShiftPackageVersion=$env:PACKAGE_VERSION" "-p:RestoreAdditionalProjectSources=$feed" -- --evidence $packed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -c Release "-p:ChunkShiftPackageVersion=$env:PACKAGE_VERSION" "-p:ChunkShiftCoreVersion=0.1.0" "-p:RestoreAdditionalProjectSources=$feed" -- --evidence $released
+          $runs = @($packed)
+          # The published Core of this VersionPrefix, when there is one (none
+          # yet in a release PR).
+          $core = (python tools/package/published_core_version.py | Out-String).Trim()
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($path in @($packed, $released)) {
+          if ($core) {
+            Write-Host "published Core: $core"
+            dotnet run --project $project -c Release "-p:ChunkShiftPackageVersion=$env:PACKAGE_VERSION" "-p:ChunkShiftCoreVersion=$core" "-p:RestoreAdditionalProjectSources=$feed" -- --evidence $released
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $runs += $released
+          } else {
+            Write-Host '::notice::No published ChunkShift matches VersionPrefix yet; skipping the published-Core Patching run.'
+          }
+          foreach ($path in $runs) {
             $lines = Get-Content -LiteralPath $path
             if ($lines -cnotcontains 'suite=chunkshift.sha256.v1 public-facade-contract=pass') {
               throw "Missing SHA-256 public-facade contract evidence: $path"
@@ -364,12 +382,14 @@ jobs:
               throw "Missing BLAKE3 public-facade contract evidence: $path"
             }
           }
-          $h1 = (Get-FileHash -LiteralPath $packed -Algorithm SHA256).Hash
-          $h2 = (Get-FileHash -LiteralPath $released -Algorithm SHA256).Hash
-          if ($h1 -ne $h2) {
-            throw 'Patching evidence differs between packed and published Core'
+          if ($runs.Count -eq 2) {
+            $h1 = (Get-FileHash -LiteralPath $packed -Algorithm SHA256).Hash
+            $h2 = (Get-FileHash -LiteralPath $released -Algorithm SHA256).Hash
+            if ($h1 -ne $h2) {
+              throw 'Patching evidence differs between packed and published Core'
+            }
+            Write-Host "Windows packed Patching over packed and published Core ${core}: identical evidence"
           }
-          Write-Host 'Windows packed Patching over packed and published Core 0.1.0: identical evidence'
 
       - name: Upload Windows Patching consumer evidence
         if: always()

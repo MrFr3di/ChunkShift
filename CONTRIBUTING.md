@@ -199,7 +199,7 @@ dotnet pack src/ChunkShift/ChunkShift.csproj -c Release -o artifacts/packages -p
 dotnet run --project tests/ChunkShift.PackageSmoke -c Release -p:ChunkShiftPackageVersion=0.0.0-local.1 -p:RestoreAdditionalProjectSources=<repo>/artifacts/packages
 ```
 
-For `ChunkShift.Patching`, pack it with the same version and run its consumer. CI runs it a second time with `-p:ChunkShiftCoreVersion=0.1.0` to use the published Core, and both runs must produce identical evidence:
+For `ChunkShift.Patching`, pack it with the same version and run its consumer. CI runs it a second time over the published Core with the same `X.Y.Z` as `VersionPrefix` (`-p:ChunkShiftCoreVersion=<version>`, found by `tools/package/published_core_version.py`), and both runs must produce identical evidence. A release PR that bumps `VersionPrefix` has no such Core yet and skips that run:
 
 ```bash
 dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release -o artifacts/packages -p:PackageVersion=0.0.0-local.1
