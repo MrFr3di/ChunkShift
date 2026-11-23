@@ -131,7 +131,8 @@ internal sealed class PendingFile : IAsyncDisposable
         }
         else
         {
-            File.Move(TemporaryPath, _destinationPath);
+            // A destination created since the check is replaced as well.
+            File.Move(TemporaryPath, _destinationPath, overwrite: true);
         }
 
         _committed = true;

@@ -61,9 +61,33 @@ internal static class RecutManifests
     /// Writes a manifest of <paramref name="content"/> with the given record
     /// lengths, profile and fingerprint; every record hashes to its content.
     /// </summary>
-    internal static async Task<byte[]> WriteAsync(
+    internal static Task<byte[]> WriteAsync(
         byte[] content,
         IReadOnlyList<int> cuts,
+        HashSuiteId hashSuite,
+        ChunkingProfileId profileId,
+        ProfileFingerprint fingerprint)
+    {
+        var records = new List<(ChunkId Id, int Length)>(cuts.Count);
+        int offset = 0;
+
+        foreach (int length in cuts)
+        {
+            records.Add((new ChunkId(PatchHashing.Hash(hashSuite, content.AsSpan(offset, length))), length));
+            offset += length;
+        }
+
+        Assert.Equal(content.Length, offset);
+        return WriteRecordsAsync(records, hashSuite, profileId, fingerprint);
+    }
+
+    /// <summary>
+    /// Writes a manifest of exactly the given records. Nothing ties them to
+    /// any content, so a test can describe content that cannot exist, such as
+    /// one <see cref="ChunkId"/> with two lengths.
+    /// </summary>
+    internal static async Task<byte[]> WriteRecordsAsync(
+        IReadOnlyList<(ChunkId Id, int Length)> records,
         HashSuiteId hashSuite,
         ChunkingProfileId profileId,
         ProfileFingerprint fingerprint)
@@ -89,16 +113,12 @@ internal static class RecutManifests
         try
         {
             MethodInfo append = session.GetMethod("AppendAsync", Internal)!;
-            int offset = 0;
 
-            foreach (int length in cuts)
+            foreach ((ChunkId id, int length) in records)
             {
-                var id = new ChunkId(PatchHashing.Hash(hashSuite, content.AsSpan(offset, length)));
                 await (ValueTask)append.Invoke(encoder, [id, (uint)length, CancellationToken.None])!;
-                offset += length;
             }
 
-            Assert.Equal(content.Length, offset);
             await (Task)session.GetMethod("CompleteAsync", Internal)!.Invoke(
                 encoder,
                 [CancellationToken.None])!;
