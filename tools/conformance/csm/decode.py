@@ -438,7 +438,7 @@ def _decode(data: bytes, records: list[tuple[bytes, int]] | None = None) -> dict
     if computed_file_digest != stored_file_digest:
         failures.add("FileDigest")
 
-    # Profile semantics (#64): only a registered ProfileId can be checked.
+    # Profile semantics: only a registered ProfileId can be checked.
     registered = REGISTERED_PROFILES.get(profile_raw)
     if registered is not None and registered != profile_fingerprint:
         failures.add("ProfileSemantics")
