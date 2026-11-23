@@ -6,7 +6,7 @@
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>0.1.0</PackageValidationBaselineVersion>
     <PackageId>ChunkShift</PackageId>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <Description>Deterministic content-defined chunking, streaming binary manifests and verification for .NET.</Description>
     <Authors>MrFr3di</Authors>
     <Copyright>Copyright (c) 2026 MrFr3di</Copyright>
