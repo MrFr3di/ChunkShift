@@ -1,7 +1,7 @@
 # Support and validation matrix
 
 Status: Active pre-1.0 policy  
-Last reviewed: 2026-09-27
+Last reviewed: 2026-11-23
 
 This document separates **package target compatibility**, **continuously tested environments** and **architecture validation targets**.
 
@@ -17,11 +17,13 @@ This document separates **package target compatibility**, **continuously tested 
 | Windows ARM64 | architecture target | continuous validation is added when usage warrants it |
 | macOS | best effort | no compatibility promise until CI evidence exists |
 
+`ChunkShift.Patching` targets `net10.0` only. CI runs its package consumer on Linux x64 and Windows x64 on every PR; the conformance workflow adds its NativeAOT consumer on Linux x64 and ARM64.
+
 Compatibility with a target framework is not the same as vendor support for the runtime. See the [.NET support policy](https://dotnet.microsoft.com/platform/support/policy/dotnet-core) for runtime lifecycles. Dropping `net8.0` after its end of support is a package-surface change and is announced in the release notes.
 
 ## NativeAOT and trimming
 
-Core is NativeAOT- and trim-compatible. `IsAotCompatible=true` alone is not treated as evidence: the conformance and release workflows publish a clean consumer of the produced package with `PublishAot=true` and `PublishTrimmed=true` and compare its output with the JIT consumer.
+Core and Patching are NativeAOT- and trim-compatible. `IsAotCompatible=true` alone is not treated as evidence: the conformance and release workflows publish a clean consumer of the produced package with `PublishAot=true` and `PublishTrimmed=true` and compare its output with the JIT consumer.
 
 ASP.NET Core hosting may have its own AOT constraints, but it does not leak host requirements into Core ([ASPNET-CORE.md](ASPNET-CORE.md)).
 

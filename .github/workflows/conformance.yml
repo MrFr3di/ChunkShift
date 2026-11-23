@@ -1,9 +1,9 @@
 name: Conformance
 
-# Persisted-contract gate: independent FastCDC and CSM checks, extended reader
-# fuzzing with a differential decoder, JIT and NativeAOT consumers of the
-# packed package on x64 and ARM64, x64/ARM64 determinism and a
-# larger-than-memory source. It is not a benchmark.
+# Persisted-contract gate: independent FastCDC, CSM and CSP checks, extended
+# reader and apply fuzzing with differential decoders, JIT and NativeAOT
+# consumers of both packed packages on x64 and ARM64, x64/ARM64 determinism
+# and a larger-than-memory source. It is not a benchmark.
 on:
   workflow_dispatch:
   schedule:
@@ -93,11 +93,54 @@ jobs:
             --filter "FullyQualifiedName~ChunkShift.Tests.Fuzzing"
           python3 tools/conformance/csm/decode.py --compare "$CHUNKSHIFT_FUZZ_DUMP"
 
+      # The independent CSP decoder needs Python 3.14 (compression.zstd).
+      - name: Set up Python 3.14 for the CSP decoder
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Verify the CSP vectors with the independent generator and decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c "import sys; from compression import zstd; print(sys.version, zstd.zstd_version_info)"
+          python tools/conformance/csp/generate.py --verify tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+          python tools/conformance/csp/forward_apply.py --vectors tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+
+      - name: Extended CSP apply fuzz with differential decoder check
+        shell: bash
+        env:
+          CHUNKSHIFT_FUZZ_ITERATIONS: 2000
+          CHUNKSHIFT_FRAME_FUZZ_ITERATIONS: 10000
+          CHUNKSHIFT_FUZZ_DUMP: ${{ runner.temp }}/csp-fuzz
+        run: |
+          set -euo pipefail
+          # Fresh seeds per run explore new inputs; any failure prints its seed
+          # and iteration, so it replays with CHUNKSHIFT_FUZZ_SEEDS. The offset
+          # differs from the CSM step so the two lanes never share a stream.
+          base=$(( ${{ github.run_number }} * 16 + 8 ))
+          export CHUNKSHIFT_FUZZ_SEEDS="$base,$((base + 1)),$((base + 2)),$((base + 3))"
+          echo "fuzz seeds: $CHUNKSHIFT_FUZZ_SEEDS"
+          dotnet test tests/ChunkShift.Patching.Tests -c Release --no-build --no-restore \
+            --filter "FullyQualifiedName~ChunkShift.Patching.Tests.Fuzzing"
+          python tools/conformance/csp/decode.py --compare "$CHUNKSHIFT_FUZZ_DUMP"
+          python tools/conformance/csp/forward_apply.py --compare "$CHUNKSHIFT_FUZZ_DUMP"
+          # Mutated zstd frames alone: ZstdSharp against the runner's libzstd.
+          python tools/conformance/csp/decode.py --compare-frames "$CHUNKSHIFT_FUZZ_DUMP"
+
       - name: Pack
-        run: dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
+          dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${PACKAGE_VERSION}
 
       - name: Check package runtime dependencies
-        run: python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${PACKAGE_VERSION}.nupkg"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${PACKAGE_VERSION}.nupkg"
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.Patching.${PACKAGE_VERSION}.nupkg"
 
       - name: Package smoke (JIT)
         shell: bash
@@ -146,6 +189,37 @@ jobs:
             --evidence "${GITHUB_WORKSPACE}/artifacts/package-smoke/large-${{ matrix.rid }}.txt"
           rm -f "$source"
 
+      - name: Patching package smoke (JIT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -- --evidence "artifacts/package-smoke/patching-jit-${{ matrix.rid }}.txt"
+
+      - name: Patching NativeAOT package-consumer publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          # TreatWarningsAsErrors is repository-wide, so a trim or AOT warning
+          # fails this publish instead of passing quietly.
+          dotnet publish tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -r "${{ matrix.rid }}" --self-contained true -p:PublishAot=true -p:PublishTrimmed=true \
+            -p:ChunkShiftPackageVersion="${PACKAGE_VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -o artifacts/aot-publish-patching
+
+      - name: Run Patching NativeAOT smoke and compare with JIT
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./artifacts/aot-publish-patching/ChunkShift.Patching.PackageSmoke \
+            --evidence "artifacts/package-smoke/patching-aot-${{ matrix.rid }}.txt"
+          diff -u \
+            "artifacts/package-smoke/patching-jit-${{ matrix.rid }}.txt" \
+            "artifacts/package-smoke/patching-aot-${{ matrix.rid }}.txt"
+
       - name: Upload package-smoke evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -179,4 +253,9 @@ jobs:
           diff -u \
             artifacts/package-smoke/large-linux-x64.txt \
             artifacts/package-smoke/large-linux-arm64.txt
-          cat artifacts/package-smoke/aot-linux-x64.txt artifacts/package-smoke/large-linux-x64.txt
+          diff -u \
+            artifacts/package-smoke/patching-aot-linux-x64.txt \
+            artifacts/package-smoke/patching-aot-linux-arm64.txt
+          cat artifacts/package-smoke/aot-linux-x64.txt \
+            artifacts/package-smoke/large-linux-x64.txt \
+            artifacts/package-smoke/patching-aot-linux-x64.txt

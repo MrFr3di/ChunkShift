@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Consumer of the *packed* ChunkShift.Patching NuGet package, shared by CI
+    (JIT, once over the packed Core and once over the published Core 0.1.0) and
+    by the conformance workflow (NativeAOT, x64 + ARM64). It is intentionally not part
+    of ChunkShift.slnx: it restores ChunkShift.Patching from a freshly packed
+    local feed passed as RestoreAdditionalProjectSources, with the packed
+    version passed as ChunkShiftPackageVersion. A non-empty ChunkShiftCoreVersion
+    adds a direct ChunkShift reference, so one run can pin the packed Patching
+    package over the published Core 0.1.0 instead of the Core packed next to it.
+    CONTRIBUTING.md shows the exact local commands.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The package version is supplied per run, not pinned centrally. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ChunkShiftPackageVersion Condition="'$(ChunkShiftPackageVersion)' == ''">0.0.0-local</ChunkShiftPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ChunkShift.Patching" Version="$(ChunkShiftPackageVersion)" />
+    <PackageReference Include="ChunkShift" Version="$(ChunkShiftCoreVersion)"
+                      Condition="'$(ChunkShiftCoreVersion)' != ''" />
+  </ItemGroup>
+
+</Project>
