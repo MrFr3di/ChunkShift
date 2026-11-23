@@ -7,7 +7,8 @@ integrity verdicts are not checked only by the production C# reader.
 
 Independence rules:
 
-- it uses only Python's standard library;
+- it uses only Python's standard library and the pure-Python BLAKE3 of
+  blake3_reference.py, which is checked against the official BLAKE3 vectors;
 - it does not import generate.py or any ChunkShift code;
 - it is written from the specification, section by section, and keeps its
   own CRC-32C (table-driven, unlike the bitwise one in generate.py).
@@ -25,8 +26,8 @@ Verdict model (matches the public .NET contract):
                    Int64.MaxValue, which the .NET API cannot represent
                    (the .NET API throws NotSupportedException).
 
-Only the SHA-256 HashSuite is implemented, because BLAKE3 is not in the
-standard library; the golden vectors deliberately use SHA-256.
+Both v1 HashSuites are implemented: SHA-256 with hashlib, BLAKE3 with
+blake3_reference.py (about 1 MB/s, enough for manifests and test content).
 
 Usage:
   decode.py FILE...             print one JSON verdict per file;
@@ -37,10 +38,16 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import struct
 import sys
 from pathlib import Path
+
+_BLAKE3_PATH = Path(__file__).resolve().parent / "blake3_reference.py"
+_blake3_spec = importlib.util.spec_from_file_location("csm_fixtures_blake3", _BLAKE3_PATH)
+blake3_reference = importlib.util.module_from_spec(_blake3_spec)
+_blake3_spec.loader.exec_module(blake3_reference)
 
 # Section 3 / 12.
 PREAMBLE_MAGIC = b"CSM1"
@@ -72,9 +79,13 @@ FOOT_LENGTH = 48
 # Section 8.
 MANIFEST_ID_DOMAIN = b"chunkshift.manifest-id.v1\x00"
 
-# The two v1 HashSuites. Only SHA-256 can be computed here.
+# The two v1 HashSuites and their digest constructors.
 SHA256_SUITE = "chunkshift.sha256.v1"
 BLAKE3_SUITE = "chunkshift.blake3-256.v1"
+HASH_SUITES = {
+    SHA256_SUITE: hashlib.sha256,
+    BLAKE3_SUITE: blake3_reference.blake3,
+}
 
 ID_FIRST = set(b"abcdefghijklmnopqrstuvwxyz0123456789")
 ID_REST = ID_FIRST | set(b"._-")
@@ -166,18 +177,23 @@ def _read_header(cursor: Cursor) -> tuple[int, bytes, int, int]:
     return offset, kind, flags, payload_length
 
 
-def decode(data: bytes) -> dict[str, object]:
-    """Return the verdict for one complete CSM representation."""
+def decode(data: bytes, records: list[tuple[bytes, int]] | None = None) -> dict[str, object]:
+    """Return the verdict for one complete CSM representation.
+
+    When ``records`` is a list, the ordered (ChunkId, Length) records are
+    appended to it as they are parsed (used by the CSP decoder to read the
+    manifest a CSP patch embeds).
+    """
 
     try:
-        return _decode(data)
+        return _decode(data, records)
     except Reject as error:
         return {"outcome": "reject", "failures": [], "reason": str(error)}
     except Unsupported as error:
         return {"outcome": "unsupported", "failures": [], "reason": str(error)}
 
 
-def _decode(data: bytes) -> dict[str, object]:
+def _decode(data: bytes, records: list[tuple[bytes, int]] | None = None) -> dict[str, object]:
     cursor = Cursor(data)
     failures: set[str] = set()
 
@@ -232,12 +248,9 @@ def _decode(data: bytes) -> dict[str, object]:
     suite = _check_identifier(suite_raw, "HashSuiteId")
     _check_identifier(profile_raw, "ChunkingProfileId")
 
-    if suite == BLAKE3_SUITE:
-        raise Unsupported("BLAKE3 is not available in the Python standard library")
-    if suite != SHA256_SUITE:
+    new_hash = HASH_SUITES.get(suite)
+    if new_hash is None:
         raise Unsupported(f"unknown HashSuite {suite}")
-
-    new_hash = hashlib.sha256
 
     identity = new_hash()
     identity.update(MANIFEST_ID_DOMAIN)
@@ -296,6 +309,8 @@ def _decode(data: bytes) -> dict[str, object]:
             identity.update(chunk_id)
             identity.update(struct.pack("<I", length))
             block_length += length
+            if records is not None:
+                records.append((chunk_id, length))
 
         blocks.append((observed_length, section_offset))
         observed_count += count
@@ -423,7 +438,7 @@ def _decode(data: bytes) -> dict[str, object]:
     if computed_file_digest != stored_file_digest:
         failures.add("FileDigest")
 
-    # Profile semantics: only a registered ProfileId can be checked.
+    # Profile semantics (#64): only a registered ProfileId can be checked.
     registered = REGISTERED_PROFILES.get(profile_raw)
     if registered is not None and registered != profile_fingerprint:
         failures.add("ProfileSemantics")
@@ -431,6 +446,8 @@ def _decode(data: bytes) -> dict[str, object]:
     return {
         "outcome": "integrity" if failures else "valid",
         "failures": sorted(failures),
+        "hashSuite": suite,
+        "profileId": profile_raw.decode("ascii"),
         "manifestId": stored_manifest_id.hex(),
         "computedManifestId": computed_manifest_id.hex(),
         "fileDigest": stored_file_digest.hex(),

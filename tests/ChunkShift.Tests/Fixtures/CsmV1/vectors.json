@@ -57,6 +57,32 @@
       "hasBidx": false,
       "physicalLength": 492
     },
+    "integrity-blake3-bad-file-digest.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "FileDigest"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 496
+    },
+    "integrity-blake3-bad-stored-manifest-id.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [
+          "ManifestId"
+        ],
+        "outcome": "integrity"
+      },
+      "hasBidx": false,
+      "physicalLength": 496
+    },
     "integrity-cend-chunk-count-mismatch.csm": {
       "cblkCount": 1,
       "chunkCount": 3,
@@ -492,6 +518,19 @@
       "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
       "physicalLength": 559
     },
+    "valid-multiblock-blake3-bidx.csm": {
+      "cblkCount": 2,
+      "chunkCount": 4097,
+      "contentLength": 8390657,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "68c7736365d2a06d64ffe0bb31eeb12db719a3ce7c1bd8aa6d2037a06728952b",
+      "hasBidx": true,
+      "manifestId": "233b552703ff844f38977c46caf73d679fb7ab62959e952b3bbbd9cd8e1678a1",
+      "physicalLength": 147980
+    },
     "valid-optional-physical-feature-ignored.csm": {
       "cblkCount": 1,
       "chunkCount": 3,
@@ -504,6 +543,19 @@
       "hasBidx": false,
       "manifestId": "30cd08fdbdcd7a72131de8abacb54b7bcda2da2d85bb981f8eb602e1265591e6",
       "physicalLength": 492
+    },
+    "valid-small-blake3-no-bidx.csm": {
+      "cblkCount": 1,
+      "chunkCount": 3,
+      "contentLength": 23,
+      "expect": {
+        "failures": [],
+        "outcome": "valid"
+      },
+      "fileDigest": "95521c3453301b9ddba0e91b2d3a24d0cd36dacb74167272b83a78e1e85e97b1",
+      "hasBidx": false,
+      "manifestId": "7e9626b9daabac34d377cc2f6e2c4a37a5f62e6339d32e53729401ca7215ec2a",
+      "physicalLength": 496
     },
     "valid-small-sha256-bidx.csm": {
       "cblkCount": 1,

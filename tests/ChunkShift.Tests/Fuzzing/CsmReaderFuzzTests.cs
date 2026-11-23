@@ -33,8 +33,8 @@ namespace ChunkShift.Tests.Fuzzing;
 /// <list type="bullet">
 /// <item><c>CHUNKSHIFT_FUZZ_ITERATIONS</c>: iterations per seed (default 400);</item>
 /// <item><c>CHUNKSHIFT_FUZZ_SEEDS</c>: comma-separated seeds replacing the defaults;</item>
-/// <item><c>CHUNKSHIFT_FUZZ_DUMP</c>: directory that receives small SHA-256 cases
-/// and a <c>verdicts.jsonl</c> with the .NET verdict of each.</item>
+/// <item><c>CHUNKSHIFT_FUZZ_DUMP</c>: directory that receives small SHA-256 and
+/// BLAKE3 cases and a <c>verdicts.jsonl</c> with the .NET verdict of each.</item>
 /// </list>
 /// </remarks>
 public sealed class CsmReaderFuzzTests
@@ -354,8 +354,8 @@ public sealed class CsmReaderFuzzTests
     }
 
     /// <summary>
-    /// Writes small SHA-256 cases and their .NET verdicts for the Python
-    /// differential check.
+    /// Writes small SHA-256 and BLAKE3 cases and their .NET verdicts for the
+    /// Python differential check.
     /// </summary>
     private sealed class DumpWriter : IDisposable
     {
@@ -386,10 +386,11 @@ public sealed class CsmReaderFuzzTests
 
         internal void Write(byte[] input, string verdict)
         {
-            // The Python decoder implements SHA-256 only.
+            // Only the two v1 HashSuites, which the Python decoder implements;
+            // an unknown suite is left to the vectors.
             if (input.Length > MaximumDumpedCaseBytes ||
                 !CsmMutator.TryReadHashSuite(input, out HashSuiteId? suite) ||
-                suite != HashSuiteIds.Sha256V1)
+                (suite != HashSuiteIds.Sha256V1 && suite != HashSuiteIds.Blake3256V1))
             {
                 return;
             }

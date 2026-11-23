@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generate independent CSM v1 candidate SHA-256 vectors.
+"""Generate independent CSM v1 candidate vectors.
 
 This tool intentionally does not call ChunkShift code. It uses only Python's
-standard library and the byte layout documented in docs/architecture/CSM-V1.md.
+standard library, the pure-Python BLAKE3 of blake3_reference.py and the byte
+layout documented in docs/architecture/CSM-V1.md. Most vectors use SHA-256; the
+blake3 vectors check ManifestId and FileDigest under the BLAKE3 HashSuite.
 
 Besides the four golden fixtures it emits positive, integrity-failure and
 rejection vectors. Each vector is built from the byte layout directly, with
@@ -22,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import struct
 import sys
@@ -36,6 +39,7 @@ REQUIRED = 1
 MAX_CHUNKS_PER_BLOCK = 4096
 
 HASH_SUITE_ID = b"chunkshift.sha256.v1"
+BLAKE3_SUITE_ID = b"chunkshift.blake3-256.v1"
 PROFILE_ID = b"fixture.csm.synthetic.v1"
 PROFILE_FINGERPRINT = hashlib.sha256(
     b"chunkshift.csm.fixture.profile.v1"
@@ -43,6 +47,20 @@ PROFILE_FINGERPRINT = hashlib.sha256(
 MANIFEST_DOMAIN = b"chunkshift.manifest-id.v1\0"
 
 Entries = list[tuple[bytes, int]]
+
+_BLAKE3_PATH = Path(__file__).resolve().parent / "blake3_reference.py"
+_blake3_spec = importlib.util.spec_from_file_location("csm_fixtures_blake3", _BLAKE3_PATH)
+blake3_reference = importlib.util.module_from_spec(_blake3_spec)
+_blake3_spec.loader.exec_module(blake3_reference)
+
+
+def suite_hash(hash_suite_id: bytes):
+    """The digest constructor of a HashSuite.
+
+    An identifier that names no v1 HashSuite (the unsupported vectors) keeps
+    SHA-256, so those vectors stay consistent in every other field.
+    """
+    return blake3_reference.blake3 if hash_suite_id == BLAKE3_SUITE_ID else hashlib.sha256
 
 
 def section_header(kind: bytes, flags: int, payload_length: int) -> bytes:
@@ -72,7 +90,7 @@ def manifest_id(
     hash_suite_id: bytes = HASH_SUITE_ID,
     profile_id: bytes = PROFILE_ID,
 ) -> tuple[bytes, int]:
-    digest = hashlib.sha256()
+    digest = suite_hash(hash_suite_id)()
     digest.update(MANIFEST_DOMAIN)
     digest.update(struct.pack("<H", len(hash_suite_id)))
     digest.update(hash_suite_id)
@@ -302,7 +320,7 @@ def build(
     for extra in layout.after_foot:
         output += extra
 
-    file_digest = hashlib.sha256(output).digest()
+    file_digest = suite_hash(layout.hash_suite_id)(bytes(output)).digest()
     stored_digest = xor_byte(file_digest, 0) if layout.trailer_digest_xor else file_digest
     physical_length = len(output) + TRAILER_SIZE
     output += (
@@ -459,6 +477,16 @@ def fixtures() -> dict[str, Vector]:
             integrity("FileDigest"),
             trailer_digest_xor=True,
         ),
+
+        # The BLAKE3 HashSuite: ManifestId and FileDigest are BLAKE3 digests.
+        "valid-small-blake3-no-bidx.csm": variant(
+            dict(VALID), hash_suite_id=BLAKE3_SUITE_ID),
+        "valid-multiblock-blake3-bidx.csm": variant(
+            dict(VALID), bidx=True, entries=multi_entries(), hash_suite_id=BLAKE3_SUITE_ID),
+        "integrity-blake3-bad-stored-manifest-id.csm": variant(
+            integrity("ManifestId"), hash_suite_id=BLAKE3_SUITE_ID, cend_manifest_id_xor=True),
+        "integrity-blake3-bad-file-digest.csm": variant(
+            integrity("FileDigest"), hash_suite_id=BLAKE3_SUITE_ID, trailer_digest_xor=True),
 
         # PREAMBLE (spec section 3).
         "reject-preamble-bad-magic.csm": variant(
