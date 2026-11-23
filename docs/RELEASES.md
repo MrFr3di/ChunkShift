@@ -1,7 +1,7 @@
 # Release and versioning policy
 
 Status: Active  
-Last reviewed: 2026-09-27
+Last reviewed: 2026-11-23
 
 This document is normative for package versions, Git tags, GitHub Releases and the changelog.
 
@@ -21,6 +21,8 @@ Until an explicit decision to release `1.0.0`, normal releases use one monotonic
 - the version number alone promises no backward compatibility before `1.0.0`;
 - breaking changes are always explicit in the PR, the changelog and the release notes;
 - `1.0.0` requires a separate recorded compatibility decision.
+
+The repository publishes two packages, `ChunkShift` and `ChunkShift.Patching`. They are released together with the same version: `ChunkShift.Patching X.Y.Z` depends on `ChunkShift X.Y.Z`, and a release that changes only one of them still ships both.
 
 ## 2. Package versions are not format versions
 
@@ -62,19 +64,20 @@ Every release gets a dated changelog section, with explicit breaking-change and 
 
 ## 6. Release procedure
 
-1. **Release PR.** Title `chore(release): prepare X.Y.Z`. It sets `VersionPrefix` in `src/ChunkShift/ChunkShift.csproj`, moves the `PublicAPI.Unshipped.txt` entries into `PublicAPI.Shipped.txt` (§8.1) and adds the dated `## [X.Y.Z]` changelog section, which becomes the release notes. Merge it after all intended changes are on `main` and CI is green.
+1. **Release PR.** Title `chore(release): prepare X.Y.Z`. It sets `VersionPrefix` in `src/ChunkShift/ChunkShift.csproj` and `src/ChunkShift.Patching/ChunkShift.Patching.csproj`, moves the `PublicAPI.Unshipped.txt` entries into `PublicAPI.Shipped.txt` (§8.1) and adds the dated `## [X.Y.Z]` changelog section, which becomes the release notes. Merge it after all intended changes are on `main` and CI is green.
 2. **Dry run.** Dispatch the `Release` workflow from `main` with the version and `publish_nuget: false`. Inspect the uploaded `.nupkg`, `.snupkg`, `SHA256SUMS` and `RELEASE_NOTES.md`. A dry run creates no package, tag or release.
 3. **Publish.** Dispatch the workflow again with `publish_nuget: true`. Approve the `release` environment deployment when prompted.
-4. **GitHub Release.** After nuget.org accepts the package, the workflow creates `vX.Y.Z` on the exact validated commit, creates a draft GitHub Release, attaches the validated `.nupkg`, `.snupkg` and `SHA256SUMS`, and publishes the release. With release immutability enabled, the published tag and assets cannot be replaced; a faulty release is corrected with a new package version.
-5. **Check.** Install the published version into a clean project from nuget.org.
+4. **GitHub Release.** After nuget.org accepts both packages, the workflow creates `vX.Y.Z` on the exact validated commit, creates a draft GitHub Release, attaches the validated `.nupkg`, `.snupkg` and `SHA256SUMS`, and publishes the release. With release immutability enabled, the published tag and assets cannot be replaced; a faulty release is corrected with a new package version.
+5. **Check.** Install both published packages into a clean project from nuget.org.
 
-The workflow refuses a version whose `X.Y.Z` differs from `VersionPrefix`, that is not higher than every version already on nuget.org, or whose tag already exists. It builds, tests, packs, inspects and consumes the package (JIT and NativeAOT) once, then publishes those exact files; nothing is rebuilt after validation.
+The workflow refuses a version whose `X.Y.Z` differs from the `VersionPrefix` of either package, that is not higher than every version of either package already on nuget.org, or whose tag already exists. It builds, tests, packs, inspects and consumes both packages (JIT and NativeAOT) once, then publishes those exact files, `ChunkShift` first; nothing is rebuilt after validation.
 
 If a release turns out to be wrong, publish a new version. Never mutate or reuse an old one.
 
 ### 6.1 Recovering a partial run
 
-- **Package published, symbols failed:** re-push the `.snupkg` from the run's `chunkshift-<version>` artifact with `dotnet nuget push <file>.snupkg --skip-duplicate`. Re-running the workflow is refused because the version is already published.
+- **Only `ChunkShift` published, or a push failed:** re-run only the failed `publish-nuget` job (`gh run rerun <run id> --failed`). It pushes the same validated files again and skips the ones nuget.org already has.
+- **Packages published, symbols failed:** re-push the `.snupkg` from the run's `chunkshift-<version>` artifact with `dotnet nuget push <file>.snupkg --skip-duplicate`. Re-running the workflow is refused because the version is already published.
 - **Package published, `github-release` failed:** re-run only the failed job (`gh run rerun <run id> --failed`). It reuses the original workflow artifact and the original `GITHUB_SHA`: it keeps a `v<version>` tag that already points to that commit, completes a draft left by the failed attempt, and publishes the release with the original `.nupkg`, `.snupkg` and `SHA256SUMS`. The artifacts are kept for 90 days, so recover within that window; packages downloaded from nuget.org carry its repository signature and no longer match `SHA256SUMS`. Never rebuild the same version and never tag a different commit.
 
 ## 7. Release infrastructure
@@ -110,7 +113,7 @@ The PublicAPI analyzer tracks the public surface:
 - Entries move from Unshipped to Shipped only in the release PR (§6 step 1), so `Shipped.txt` always describes something consumers could install.
 - Removing or changing a Shipped entry is a breaking change under §8.
 
-From the release after `0.1.0` on, package validation also compares the package with the previous published version (`PackageValidationBaselineVersion`), which catches binary breaks that source compilation misses.
+From the release after `0.1.0` on, package validation also compares the package with the previous published version (`PackageValidationBaselineVersion`), which catches binary breaks that source compilation misses. `ChunkShift.Patching` gets the same baseline from the release after its first publication.
 
 ## 9. Releasing 1.0.0
 

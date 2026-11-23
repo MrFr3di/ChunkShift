@@ -1,9 +1,10 @@
 name: Release
 
-# Controlled release of the ChunkShift package (docs/RELEASES.md §6).
+# Controlled release of the ChunkShift and ChunkShift.Patching packages
+# (docs/RELEASES.md §6). Both packages ship together with one version.
 #
 #   validate        builds, tests, packs, inspects and consumes the exact
-#                   package (JIT and NativeAOT); read-only token.
+#                   packages (JIT and NativeAOT); read-only token.
 #   publish         only with publish_nuget: verifies checksums, attests
 #                   provenance and pushes the validated files through NuGet
 #                   Trusted Publishing. Runs no repository code and is the
@@ -99,9 +100,10 @@ jobs:
           global-json-file: global.json
 
       # The requested version must be the one main declares: its X.Y.Z core
-      # equals VersionPrefix, so every release first bumps VersionPrefix in a
-      # reviewed PR. A version that is not higher than everything on
-      # nuget.org, or whose tag already exists, is refused before any build.
+      # equals VersionPrefix of both packages, so every release first bumps
+      # VersionPrefix in a reviewed PR. A version that is not higher than
+      # everything either package has on nuget.org, or whose tag already
+      # exists, is refused before any build.
       - name: Check version against VersionPrefix, nuget.org and tags
         shell: bash
         env:
@@ -109,27 +111,33 @@ jobs:
         run: |
           set -euo pipefail
 
-          prefix=$(dotnet msbuild src/ChunkShift/ChunkShift.csproj -getProperty:VersionPrefix | tr -d '[:space:]')
-          if [[ "${VERSION%%-*}" != "${prefix}" ]]; then
-            echo "Version ${VERSION} does not match VersionPrefix ${prefix} on this commit; bump VersionPrefix in a PR first." >&2
-            exit 1
-          fi
+          for project in src/ChunkShift/ChunkShift.csproj src/ChunkShift.Patching/ChunkShift.Patching.csproj; do
+            prefix=$(dotnet msbuild "${project}" -getProperty:VersionPrefix | tr -d '[:space:]')
+            if [[ "${VERSION%%-*}" != "${prefix}" ]]; then
+              echo "Version ${VERSION} does not match VersionPrefix ${prefix} of ${project} on this commit; bump VersionPrefix in a PR first." >&2
+              exit 1
+            fi
+          done
 
-          # nuget.org flat container: 404 means the package id has no versions
-          # yet; any other non-200 answer is an error, not "not published".
-          status=$(curl -sS -o nuget-versions.json -w '%{http_code}' \
-            "https://api.nuget.org/v3-flatcontainer/chunkshift/index.json")
-          if [[ "${status}" == 404 ]]; then
-            echo '{"versions": []}' > nuget-versions.json
-          elif [[ "${status}" != 200 ]]; then
-            echo "nuget.org version lookup failed with HTTP ${status}." >&2
-            exit 1
-          fi
+          for id in chunkshift chunkshift.patching; do
+            # nuget.org flat container: 404 means the package id has no
+            # versions yet; any other non-200 answer is an error, not "not
+            # published".
+            status=$(curl -sS -o "nuget-versions-${id}.json" -w '%{http_code}' \
+              "https://api.nuget.org/v3-flatcontainer/${id}/index.json")
+            if [[ "${status}" == 404 ]]; then
+              echo '{"versions": []}' > "nuget-versions-${id}.json"
+            elif [[ "${status}" != 200 ]]; then
+              echo "nuget.org version lookup for ${id} failed with HTTP ${status}." >&2
+              exit 1
+            fi
+          done
 
           # Refuse any version that is not strictly higher, by SemVer 2.0
-          # precedence, than every version already on nuget.org: that covers
-          # reuse (equal), lower cores, lower pre-releases (rc.2 < rc.10,
-          # beta < rc.1) and a pre-release after its own stable release.
+          # precedence, than every version of either package already on
+          # nuget.org: that covers reuse (equal), lower cores, lower
+          # pre-releases (rc.2 < rc.10, beta < rc.1) and a pre-release after
+          # its own stable release.
           python3 - <<'PY'
           import json, os, sys
 
@@ -143,12 +151,13 @@ jobs:
                   for part in pre.split(".")))
 
           requested = os.environ["VERSION"]
-          for version in json.load(open("nuget-versions.json"))["versions"]:
-              # NuGet compares pre-release labels case-insensitively.
-              if precedence(version.lower()) >= precedence(requested.lower()):
-                  sys.exit(f"ChunkShift {requested} is not higher than published {version}; published versions are never reused.")
+          for package_id, name in (("chunkshift", "ChunkShift"), ("chunkshift.patching", "ChunkShift.Patching")):
+              for version in json.load(open(f"nuget-versions-{package_id}.json"))["versions"]:
+                  # NuGet compares pre-release labels case-insensitively.
+                  if precedence(version.lower()) >= precedence(requested.lower()):
+                      sys.exit(f"{name} {requested} is not higher than published {version}; published versions are never reused.")
           PY
-          rm nuget-versions.json
+          rm nuget-versions-*.json
 
           if [[ -n "$(git ls-remote --tags origin "refs/tags/v${VERSION}")" ]]; then
             echo "Tag v${VERSION} already exists; release tags are never moved or reused." >&2
@@ -172,13 +181,36 @@ jobs:
           python3 tools/conformance/fastcdc_reference.py --verify
           python3 tools/conformance/csm/generate.py --verify tests/ChunkShift.Tests/Fixtures/CsmV1
 
-      - name: Pack exact release artifacts
-        run: dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion=${{ inputs.version }}
+      # The independent CSP decoder needs Python 3.14 (compression.zstd).
+      - name: Set up Python 3.14 for the CSP decoder
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
 
-      - name: Check package runtime dependencies
+      - name: Verify the CSP vectors with the independent tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/conformance/csp/generate.py --verify tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+          python tools/conformance/csp/forward_apply.py --vectors tests/ChunkShift.Patching.Tests/Fixtures/CspV1
+
+      - name: Pack exact release artifacts
+        shell: bash
         env:
           VERSION: ${{ inputs.version }}
-        run: python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${VERSION}.nupkg"
+        run: |
+          set -euo pipefail
+          dotnet pack src/ChunkShift/ChunkShift.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion="${VERSION}"
+          dotnet pack src/ChunkShift.Patching/ChunkShift.Patching.csproj -c Release --no-build --no-restore -o artifacts/packages -p:PackageVersion="${VERSION}"
+
+      - name: Check package runtime dependencies
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.${VERSION}.nupkg"
+          python3 tools/package/check_dependencies.py "artifacts/packages/ChunkShift.Patching.${VERSION}.nupkg"
 
       - name: Inspect package metadata and contents
         shell: bash
@@ -196,39 +228,45 @@ jobs:
           sha = os.environ["GITHUB_SHA"]
           errors = []
 
-          def check(condition, message):
-              if not condition:
-                  errors.append(message)
+          packages = {
+              "ChunkShift": ("net8.0", "net10.0"),
+              "ChunkShift.Patching": ("net10.0",),
+          }
 
-          with zipfile.ZipFile(f"artifacts/packages/ChunkShift.{version}.nupkg") as package:
-              names = set(package.namelist())
-              nuspec = ET.fromstring(package.read("ChunkShift.nuspec"))
-          ns = {"n": nuspec.tag.split("}")[0].strip("{")}
-          meta = nuspec.find("n:metadata", ns)
-          text = lambda tag: (meta.findtext(f"n:{tag}", default="", namespaces=ns) or "").strip()
-          repository = meta.find("n:repository", ns)
+          for package_id, tfms in packages.items():
+              def check(condition, message, package_id=package_id):
+                  if not condition:
+                      errors.append(f"{package_id}: {message}")
 
-          check(text("id") == "ChunkShift", f"id is {text('id')!r}")
-          check(text("version") == version, f"version is {text('version')!r}")
-          check(text("license") == "MIT", f"license is {text('license')!r}")
-          check(text("readme") == "README.md" and "README.md" in names, "README.md is missing")
-          check(text("icon") == "icon.png" and "icon.png" in names, "icon.png is missing")
-          check(text("projectUrl") == "https://github.com/MrFr3di/ChunkShift", f"projectUrl is {text('projectUrl')!r}")
-          check(repository is not None and repository.get("url") == "https://github.com/MrFr3di/ChunkShift",
-                "repository url does not point to MrFr3di/ChunkShift")
-          check(repository is not None and repository.get("commit") == sha,
-                f"repository commit is {repository.get('commit') if repository is not None else None!r}, expected {sha}")
-          for tfm in ("net8.0", "net10.0"):
-              for suffix in ("dll", "xml"):
-                  check(f"lib/{tfm}/ChunkShift.{suffix}" in names, f"lib/{tfm}/ChunkShift.{suffix} is missing")
+              with zipfile.ZipFile(f"artifacts/packages/{package_id}.{version}.nupkg") as package:
+                  names = set(package.namelist())
+                  nuspec = ET.fromstring(package.read(f"{package_id}.nuspec"))
+              ns = {"n": nuspec.tag.split("}")[0].strip("{")}
+              meta = nuspec.find("n:metadata", ns)
+              text = lambda tag: (meta.findtext(f"n:{tag}", default="", namespaces=ns) or "").strip()
+              repository = meta.find("n:repository", ns)
 
-          with zipfile.ZipFile(f"artifacts/packages/ChunkShift.{version}.snupkg") as symbols:
-              for tfm in ("net8.0", "net10.0"):
-                  check(f"lib/{tfm}/ChunkShift.pdb" in symbols.namelist(), f"symbols for {tfm} are missing")
+              check(text("id") == package_id, f"id is {text('id')!r}")
+              check(text("version") == version, f"version is {text('version')!r}")
+              check(text("license") == "MIT", f"license is {text('license')!r}")
+              check(text("readme") == "README.md" and "README.md" in names, "README.md is missing")
+              check(text("icon") == "icon.png" and "icon.png" in names, "icon.png is missing")
+              check(text("projectUrl") == "https://github.com/MrFr3di/ChunkShift", f"projectUrl is {text('projectUrl')!r}")
+              check(repository is not None and repository.get("url") == "https://github.com/MrFr3di/ChunkShift",
+                    "repository url does not point to MrFr3di/ChunkShift")
+              check(repository is not None and repository.get("commit") == sha,
+                    f"repository commit is {repository.get('commit') if repository is not None else None!r}, expected {sha}")
+              for tfm in tfms:
+                  for suffix in ("dll", "xml"):
+                      check(f"lib/{tfm}/{package_id}.{suffix}" in names, f"lib/{tfm}/{package_id}.{suffix} is missing")
+
+              with zipfile.ZipFile(f"artifacts/packages/{package_id}.{version}.snupkg") as symbols:
+                  for tfm in tfms:
+                      check(f"lib/{tfm}/{package_id}.pdb" in symbols.namelist(), f"symbols for {tfm} are missing")
 
           if errors:
               sys.exit("package inspection failed:\n  " + "\n  ".join(errors))
-          print(f"ChunkShift {version} package metadata and contents OK (commit {sha})")
+          print(f"ChunkShift and ChunkShift.Patching {version} package metadata and contents OK (commit {sha})")
           PY
 
       # The release gate runs the same real-path package smoke as CI and the
@@ -254,6 +292,28 @@ jobs:
           ./artifacts/release-consumer-publish/ChunkShift.PackageSmoke \
             --evidence artifacts/package-smoke/release-aot-linux-x64.txt
           diff -u artifacts/package-smoke/release-jit-linux-x64.txt artifacts/package-smoke/release-aot-linux-x64.txt
+
+      # The Patching consumer (plan, create, apply, in-place update and the
+      # public failure paths) against both exact packages, under JIT and as a
+      # trimmed NativeAOT consumer, with identical output.
+      - name: Consume exact Patching package (JIT and NativeAOT)
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          dotnet run --project tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -p:ChunkShiftPackageVersion="${VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -- --evidence artifacts/package-smoke/release-patching-jit-linux-x64.txt
+          dotnet publish tests/ChunkShift.Patching.PackageSmoke/ChunkShift.Patching.PackageSmoke.csproj -c Release \
+            -r linux-x64 --self-contained true -p:PublishAot=true -p:PublishTrimmed=true \
+            -p:ChunkShiftPackageVersion="${VERSION}" \
+            -p:RestoreAdditionalProjectSources="${GITHUB_WORKSPACE}/artifacts/packages" \
+            -o artifacts/release-patching-consumer-publish
+          ./artifacts/release-patching-consumer-publish/ChunkShift.Patching.PackageSmoke \
+            --evidence artifacts/package-smoke/release-patching-aot-linux-x64.txt
+          diff -u artifacts/package-smoke/release-patching-jit-linux-x64.txt artifacts/package-smoke/release-patching-aot-linux-x64.txt
 
       - name: Write checksums
         shell: bash
@@ -352,17 +412,25 @@ jobs:
         shell: bash
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          # The package itself must not exist yet: a duplicate fails. Symbols
-          # go separately and may be retried (--skip-duplicate), so a symbol
-          # upload failure after the package is published can be recovered.
-          dotnet nuget push "artifacts/packages/*.nupkg" --no-symbols \
-            --api-key "${NUGET_API_KEY}" \
-            --source "https://api.nuget.org/v3/index.json"
-          dotnet nuget push "artifacts/packages/*.snupkg" --skip-duplicate \
-            --api-key "${NUGET_API_KEY}" \
-            --source "https://api.nuget.org/v3/index.json"
+          # Core first: ChunkShift.Patching depends on ChunkShift of the same
+          # version. validate refused any version either package already had
+          # on nuget.org, so a duplicate here can only come from an earlier
+          # attempt of this run; --skip-duplicate lets a re-run of this job
+          # finish a partial publish. Symbols go separately and may be
+          # retried the same way.
+          for id in ChunkShift ChunkShift.Patching; do
+            dotnet nuget push "artifacts/packages/${id}.${VERSION}.nupkg" --no-symbols --skip-duplicate \
+              --api-key "${NUGET_API_KEY}" \
+              --source "https://api.nuget.org/v3/index.json"
+          done
+          for id in ChunkShift ChunkShift.Patching; do
+            dotnet nuget push "artifacts/packages/${id}.${VERSION}.snupkg" --skip-duplicate \
+              --api-key "${NUGET_API_KEY}" \
+              --source "https://api.nuget.org/v3/index.json"
+          done
 
   github-release:
     name: github-release
