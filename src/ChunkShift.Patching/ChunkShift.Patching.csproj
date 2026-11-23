@@ -7,7 +7,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageId>ChunkShift.Patching</PackageId>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <Description>Verified binary patches over ChunkShift manifests: reuse planning, CSP patch creation and verified reconstruction for .NET.</Description>
     <Authors>MrFr3di</Authors>
     <Copyright>Copyright (c) 2026 MrFr3di</Copyright>
